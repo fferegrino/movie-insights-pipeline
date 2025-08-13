@@ -1,0 +1,7 @@
+[project]
+name = "video-chunker"
+version = "0.1.0"
+description = "A tool to chunk videos into smaller chunks and upload them to a blob storage"
+readme = "readme.md"
+requires-python = ">=3.11"
+dependencies = []
