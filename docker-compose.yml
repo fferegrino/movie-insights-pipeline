@@ -39,6 +39,19 @@ services:
     command: ["init-buckets.sh"]
     restart: "no"
 
+  video-chunker:
+    build:
+      context: ./video-chunker
+      dockerfile: Dockerfile
+    container_name: video-chunker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    ports:
+      - "8000:8000"
+
 volumes:
   minio_data:
     driver: local
