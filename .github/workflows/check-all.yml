@@ -1,0 +1,53 @@
+name: Check All
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: [video-chunker]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+
+    - name: Install UV
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "0.8.6"
+
+    - name: Cache UV dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/uv
+          ${{ matrix.folder }}/.venv
+        key: ${{ runner.os }}-uv-${{ matrix.folder }}-${{ hashFiles(format('{0}/pyproject.toml', matrix.folder), format('{0}/uv.lock', matrix.folder)) }}
+        restore-keys: |
+          ${{ runner.os }}-uv-${{ matrix.folder }}-
+
+    - name: Install dependencies
+      working-directory: ${{ matrix.folder }}
+      run: |
+        uv sync --frozen
+
+    - name: Run linting
+      working-directory: ${{ matrix.folder }}
+      run: make lint
+
+    - name: Run unit tests
+      working-directory: ${{ matrix.folder }}
+      run: make unit-tests
+
+    - name: Run integration tests
+      working-directory: ${{ matrix.folder }}
+      run: make integration-tests
+
+    - name: Run e2e tests
+      working-directory: ${{ matrix.folder }}
+      run: make e2e-tests
+

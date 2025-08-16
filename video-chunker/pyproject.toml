@@ -5,21 +5,22 @@ description = "A tool to chunk videos into smaller chunks and upload them to a b
 readme = "readme.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    "python-multipart>=0.0.6",
-    "moviepy>=1.0.3",
     "aiofiles>=23.2.0",
     "boto3>=1.40.9",
+    "fastapi>=0.104.0",
+    "moviepy>=1.0.3",
     "pydantic-settings>=2.10.1",
+    "python-multipart>=0.0.6",
+    "uvicorn[standard]>=0.24.0",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.12.8",
+    "mypy>=1.17.1",
     "pytest>=7.0.0",
-    "testcontainers[minio]>=4.12.0",
     "requests>=2.32.4",
+    "ruff>=0.12.8",
+    "testcontainers[minio]>=4.12.0",
 ]
 
 [tool.ruff]

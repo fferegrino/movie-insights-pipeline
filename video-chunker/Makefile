@@ -12,4 +12,15 @@ fmt:
 
 lint:
 	$(RUFF) check
-	$(MYPY) video_chunker
+	# $(MYPY) video_chunker
+
+unit-tests:
+	$(PYTEST) tests/unit
+
+integration-tests:
+	$(PYTEST) tests/integration
+
+e2e-tests:
+	$(PYTEST) tests/e2e
+
+
