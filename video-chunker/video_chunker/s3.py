@@ -1,13 +1,42 @@
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
 import boto3
 from botocore.config import Config
-from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
+
+
+def flatten_dict(d: dict[str, Any], prefix: str = "", separator: str = ".") -> dict[str, Any]:
+    """
+    Flatten a nested dictionary into a single-level dictionary.
+
+    This function recursively traverses a nested dictionary and creates a flattened
+    version where nested keys are joined with a separator. This is useful for
+    preparing metadata for S3 uploads, as S3 metadata must be flat.
+
+    Args:
+        d: The nested dictionary to flatten
+        prefix: The prefix to prepend to keys (used internally for recursion)
+        separator: The string to use when joining nested keys
+
+    Returns:
+        A flattened dictionary with single-level keys
+
+    Example:
+        >>> flatten_dict({"a": {"b": 1, "c": 2}, "d": 3})
+        {'a.b': '1', 'a.c': '2', 'd': '3'}
+
+    """
+    new_dict = {}
+    for key, value in d.items():
+        if isinstance(value, dict):
+            new_dict.update(flatten_dict(value, prefix=key))
+        else:
+            new_dict[f"{prefix}{separator}{key}" if prefix else key] = str(value)
+    return new_dict
 
 
 class S3Client:
@@ -16,11 +45,22 @@ class S3Client:
 
     This class provides methods for uploading files to S3 with proper error handling
     and configuration management. It supports both synchronous and asynchronous operations.
+
+    The client can be configured to work with:
+    - Standard AWS S3
+    - S3-compatible services (like MinIO) via custom endpoint URLs
+    - Different AWS regions
+    - Custom credentials
+
+    Attributes:
+        region_name: The AWS region name for S3 operations
+        session: The boto3 session used for authentication
+        client: The boto3 S3 client for performing operations
+
     """
 
     def __init__(  # noqa: PLR0913
         self,
-        bucket_name: str,
         endpoint_url: str | None = None,
         region_name: str | None = None,
         aws_access_key_id: str | None = None,
@@ -29,19 +69,21 @@ class S3Client:
         timeout: int = 60,
     ) -> None:
         """
-        Initialize the S3 client.
+        Initialize the S3 client with configuration options.
 
         Args:
-            bucket_name: The name of the S3 bucket to use
-            endpoint_url: Custom S3 endpoint URL (for local development or other S3-compatible services)
-            region_name: AWS region name (defaults to environment variable or us-east-1)
-            aws_access_key_id: AWS access key ID (defaults to environment variable)
-            aws_secret_access_key: AWS secret access key (defaults to environment variable)
-            max_retries: Maximum number of retries for failed requests
-            timeout: Request timeout in seconds
+            endpoint_url: Custom S3 endpoint URL (useful for S3-compatible services)
+            region_name: AWS region name (e.g., 'us-east-1', 'eu-west-1')
+            aws_access_key_id: AWS access key ID for authentication
+            aws_secret_access_key: AWS secret access key for authentication
+            max_retries: Maximum number of retry attempts for failed operations
+            timeout: Timeout in seconds for connection and read operations
+
+        Note:
+            If credentials are not provided, the client will use the default
+            AWS credential chain (environment variables, IAM roles, etc.)
 
         """
-        self.bucket_name = bucket_name
         self.region_name = region_name
 
         # Configure boto3 client
@@ -68,47 +110,46 @@ class S3Client:
 
         self.client = self.session.client("s3", **client_kwargs)
 
-        # Verify bucket exists and is accessible
-        self._verify_bucket_access()
-
-    def _verify_bucket_access(self) -> None:
-        """Verify that the bucket exists and is accessible."""
-        try:
-            self.client.head_bucket(Bucket=self.bucket_name)
-            logger.info(f"Successfully connected to S3 bucket: {self.bucket_name}")
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code == "404":
-                raise ValueError(f"Bucket '{self.bucket_name}' does not exist") from e
-            elif error_code == "403":
-                raise PermissionError(f"Access denied to bucket '{self.bucket_name}'") from e
-            else:
-                raise RuntimeError(f"Failed to access bucket '{self.bucket_name}': {e}") from e
-        except (NoCredentialsError, PartialCredentialsError) as e:
-            raise RuntimeError(f"AWS credentials not found or invalid: {e}") from e
-
     def upload_file(
         self,
+        bucket_name: str,
         file_path: str,
         s3_key: str | None = None,
         metadata: dict[str, str] | None = None,
         content_type: str | None = None,
     ) -> str:
         """
-        Upload a file to S3.
+        Upload a file to S3 with optional metadata and content type.
+
+        This method uploads a local file to an S3 bucket. It includes comprehensive
+        error handling and logging for monitoring upload progress and debugging
+        issues.
 
         Args:
+            bucket_name: The name of the S3 bucket to upload to
             file_path: Local path to the file to upload
-            s3_key: S3 key (path) for the file. If None, uses the filename
+            s3_key: The S3 key (path) for the uploaded file. If None, uses the filename
             metadata: Optional metadata to attach to the S3 object
-            content_type: Optional content type for the file
+            content_type: Optional MIME type for the uploaded file
 
         Returns:
-            The S3 URL of the uploaded file
+            The S3 URI of the uploaded file (format: s3://bucket/key)
 
         Raises:
             FileNotFoundError: If the local file doesn't exist
-            RuntimeError: If the upload fails
+            RuntimeError: If the upload fails due to S3 errors
+
+        Example:
+            >>> client = S3Client()
+            >>> uri = client.upload_file(
+            ...     bucket_name="my-bucket",
+            ...     file_path="/path/to/video.mp4",
+            ...     s3_key="videos/processed/video.mp4",
+            ...     metadata={"processed": "true"},
+            ...     content_type="video/mp4"
+            ... )
+            >>> print(uri)
+            s3://my-bucket/videos/processed/video.mp4
 
         """
         file_path = Path(file_path)
@@ -122,7 +163,7 @@ class S3Client:
         # Prepare upload parameters
         upload_kwargs = {
             "Filename": str(file_path),
-            "Bucket": self.bucket_name,
+            "Bucket": bucket_name,
             "Key": s3_key,
         }
 
@@ -135,11 +176,11 @@ class S3Client:
             upload_kwargs["ExtraArgs"]["ContentType"] = content_type
 
         try:
-            logger.info(f"Uploading {file_path} to s3://{self.bucket_name}/{s3_key}")
+            logger.info(f"Uploading {file_path} to s3://{bucket_name}/{s3_key}")
             self.client.upload_file(**upload_kwargs)
 
             # Generate S3 URL
-            s3_url = f"s3://{self.bucket_name}/{s3_key}"
+            s3_url = f"s3://{bucket_name}/{s3_key}"
             logger.info(f"Successfully uploaded file to {s3_url}")
             return s3_url
 
@@ -148,107 +189,72 @@ class S3Client:
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
-    def upload_video_chunk(
+    def upload_video(
         self,
-        chunk_path: str,
-        chunk_metadata: dict[str, Any],
-        prefix: str,
+        bucket_name: str,
+        path: str,
+        metadata: dict[str, Any],
+        video_id: str,
     ) -> dict[str, Any]:
         """
-        Upload a video chunk to S3 with metadata.
+        Upload a video chunk to S3 with video-specific metadata.
+
+        This method is specifically designed for uploading video chunks that are
+        part of a larger video processing pipeline. It automatically organizes
+        chunks by video ID and includes comprehensive metadata about the chunk.
 
         Args:
-            chunk_path: Local path to the video chunk file
-            chunk_metadata: Metadata about the chunk (from chunk_video function)
-            prefix: S3 key prefix for organizing chunks
+            bucket_name: The name of the S3 bucket to upload to
+            path: Local path to the video chunk file
+            metadata: Dictionary containing chunk metadata (timestamps, overlap, etc.)
+            video_id: Unique identifier for the parent video
 
         Returns:
-            Dictionary containing the S3 URL and metadata
+            Dictionary containing the original metadata plus S3-specific information:
+            - uri: The S3 URI of the uploaded chunk
+            - id: The S3 key of the uploaded chunk
+            - video_id: The video ID
+            - All original metadata fields
+
+        Example:
+            >>> client = S3Client()
+            >>> result = client.upload_video(
+            ...     bucket_name="video-chunks",
+            ...     path="/tmp/chunk_000001_000010.mp4",
+            ...     metadata={
+            ...         "start_ts": 0.0,
+            ...         "end_ts": 10.0,
+            ...         "chunk_idx": 1,
+            ...         "chunk_count": 10
+            ...     },
+            ...     video_id="video_123"
+            ... )
+            >>> print(result["uri"])
+            s3://video-chunks/video_123/chunk_000001_000010.mp4
 
         """
         # Generate S3 key based on chunk metadata
-        chunk_filename = Path(chunk_path).name
-        s3_key = f"{prefix}/{chunk_filename}"
+        filename = Path(path).name
+        s3_key = f"{video_id}/{filename}"
 
         # Prepare metadata for S3
-        s3_metadata = {
-            "start_time": str(chunk_metadata["start_time"]),
-            "end_time": str(chunk_metadata["end_time"]),
-            "fps": str(chunk_metadata["fps"]),
-            "chunk_index": chunk_filename.split("_")[1],  # Extract chunk number
+        _metadata = {
+            "video_id": video_id,
+            **metadata,
         }
 
         # Upload the chunk
         s3_url = self.upload_file(
-            file_path=chunk_path,
+            bucket_name=bucket_name,
+            file_path=path,
             s3_key=s3_key,
-            metadata=s3_metadata,
+            metadata=flatten_dict(_metadata),
             content_type="video/mp4",
         )
 
         # Return updated metadata with S3 information
         return {
-            **chunk_metadata,
-            "s3_url": s3_url,
-            "s3_key": s3_key,
+            **_metadata,
+            "uri": s3_url,
+            "id": s3_key,
         }
-
-    def get_object_url(self, s3_key: str, expires_in: int = 3600) -> str:
-        """
-        Generate a presigned URL for an S3 object.
-
-        Args:
-            s3_key: The S3 key of the object
-            expires_in: URL expiration time in seconds (default: 1 hour)
-
-        Returns:
-            Presigned URL for the object
-
-        """
-        try:
-            url = self.client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self.bucket_name, "Key": s3_key},
-                ExpiresIn=expires_in,
-            )
-            return url
-
-        except ClientError as e:
-            error_msg = f"Failed to generate presigned URL for s3://{self.bucket_name}/{s3_key}: {e}"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg) from e
-
-
-# Convenience function for creating an S3 client with environment variables
-def create_s3_client(
-    bucket_name: str | None = None,
-    region_name: str | None = None,
-    endpoint_url: str | None = None,
-) -> S3Client:
-    """
-    Create an S3 client using environment variables for configuration.
-
-    Args:
-        bucket_name: S3 bucket name (defaults to AWS_S3_BUCKET environment variable)
-        region_name: AWS region (defaults to AWS_DEFAULT_REGION environment variable)
-        endpoint_url: Custom S3 endpoint URL (for local development)
-
-    Returns:
-        Configured S3Client instance
-
-    Raises:
-        ValueError: If bucket_name is not provided and AWS_S3_BUCKET is not set
-
-    """
-    bucket = bucket_name or os.getenv("AWS_S3_BUCKET")
-    if not bucket:
-        raise ValueError("Bucket name must be provided either as parameter or via AWS_S3_BUCKET environment variable")
-
-    region = region_name or os.getenv("AWS_DEFAULT_REGION")
-    endpoint = endpoint_url or os.getenv("AWS_S3_ENDPOINT_URL")
-
-    return S3Client(
-        bucket_name=bucket,
-        region_name=region,
-        endpoint_url=endpoint,
-    )

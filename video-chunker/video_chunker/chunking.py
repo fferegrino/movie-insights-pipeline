@@ -1,36 +1,99 @@
+"""
+Video chunking utilities for processing large video files.
+
+This module provides functionality to split large video files into smaller chunks
+with configurable overlap. This is useful for processing videos that are too large
+to process as a single unit, or for parallel processing of video segments.
+
+The chunking process preserves video quality and includes overlap regions to ensure
+smooth transitions between chunks and maintain context for analysis.
+"""
+
 import tempfile
 from collections.abc import Generator
+from dataclasses import dataclass
 
 from moviepy import VideoFileClip
 
 
-def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: float) -> list[tuple[float, float]]:
+@dataclass
+class ChunkBoundary:
     """
-    Calculate time boundaries for video chunks with overlap.
+    Represents the temporal boundaries of a video chunk.
 
-    This function divides a video duration into chunks of specified length, with optional
-    overlap between consecutive chunks. The overlap helps ensure smooth transitions
-    and prevents cutting important content at chunk boundaries.
+    This class defines the start and end timestamps of a chunk, along with
+    overlap regions on both sides. The overlap regions are used to maintain
+    context and ensure smooth transitions between chunks.
+
+    Attributes:
+        start_ts: The start timestamp of the chunk (in seconds)
+        end_ts: The end timestamp of the chunk (in seconds)
+        overlap_left: Overlap duration extending before the start timestamp
+        overlap_right: Overlap duration extending after the end timestamp
+
+    Properties:
+        left: The actual start time including left overlap
+        right: The actual end time including right overlap
+
+    """
+
+    start_ts: float
+    end_ts: float
+    overlap_left: float
+    overlap_right: float
+
+    @property
+    def left(self) -> float:
+        """
+        Get the actual start time including left overlap.
+
+        Returns:
+            The start time minus the left overlap duration
+
+        """
+        return self.start_ts - self.overlap_left
+
+    @property
+    def right(self) -> float:
+        """
+        Get the actual end time including right overlap.
+
+        Returns:
+            The end time plus the right overlap duration
+
+        """
+        return self.end_ts + self.overlap_right
+
+
+def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: float) -> list[ChunkBoundary]:
+    """
+    Calculate the boundaries for video chunks based on duration and overlap settings.
+
+    This function divides a video into chunks of specified duration, with optional
+    overlap between chunks. The overlap helps maintain context and ensures smooth
+    transitions between chunks.
 
     Args:
-        duration (float): Total duration of the video in seconds.
-        chunk_duration (float): Duration of each chunk in seconds (excluding overlap).
-        overlap (float): Overlap duration in seconds between consecutive chunks.
+        duration: Total duration of the video in seconds
+        chunk_duration: Target duration for each chunk in seconds
+        overlap: Overlap duration between consecutive chunks in seconds
 
     Returns:
-        list[tuple[float, float]]: List of (start_time, end_time) tuples for each chunk.
-            Each tuple contains the start and end times in seconds for that chunk.
-            The end_time includes the overlap with the next chunk (except for the last chunk).
+        List of ChunkBoundary objects defining each chunk's temporal boundaries
 
-    Examples:
-        >>> calculate_chunk_boundaries(10.0, 3.0, 0.5)
-        [(0.0, 3.5), (2.5, 6.5), (5.5, 9.5), (8.5, 10.0)]
+    Raises:
+        ValueError: If any of the input parameters are invalid
 
-        >>> calculate_chunk_boundaries(5.0, 2.0, 0.0)
-        [(0.0, 2.0), (2.0, 4.0), (4.0, 5.0)]
-
-        >>> calculate_chunk_boundaries(3.0, 5.0, 1.0)
-        [(0.0, 3.0)]
+    Example:
+        >>> boundaries = calculate_chunk_boundaries(100.0, 30.0, 5.0)
+        >>> len(boundaries)
+        4
+        >>> boundaries[0].start_ts
+        0.0
+        >>> boundaries[0].end_ts
+        30.0
+        >>> boundaries[0].overlap_right
+        5.0
 
     """
     # Validate inputs
@@ -50,65 +113,92 @@ def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: 
         start_time = i * chunk_duration
         end_time = min((i + 1) * chunk_duration, duration)
 
+        overlap_left = 0.0
+        overlap_right = 0.0
+
         if i != 0:
-            start_time = start_time - overlap
+            overlap_left = overlap
 
         if i != num_chunks - 1:
-            end_time = end_time + overlap
+            overlap_right = overlap
 
-        chunks.append((start_time, end_time))
+        chunks.append(ChunkBoundary(start_time, end_time, overlap_left, overlap_right))
 
     return chunks
 
 
-def chunk_video(video_path: str, chunk_duration: float, overlap: float) -> Generator[dict, None, None]:
+def chunk_video(
+    full_video: VideoFileClip, chunk_duration: float, overlap: float
+) -> Generator[tuple[str, dict], None, None]:
     """
-    Chunk a video into smaller pieces.
+    Split a video into chunks with specified duration and overlap.
 
-    Note that the chunk file is deleted after the generator is exhausted.
+    This function processes a video file and yields chunks as temporary files
+    along with their metadata. Each chunk is written to a temporary directory
+    and includes overlap regions to maintain context between chunks.
+
+    The function uses MoviePy for video processing and automatically handles
+    video codec settings for optimal quality and compatibility.
 
     Args:
-        video_path: The path to the video file.
-        chunk_duration: The duration of each chunk in seconds.
-        overlap: The overlap between chunks in seconds.
+        full_video: The MoviePy VideoFileClip object to chunk
+        chunk_duration: Target duration for each chunk in seconds
+        overlap: Overlap duration between consecutive chunks in seconds
 
-    Returns:
-        A generator of dictionaries, each containing the metadata for a chunk.
+    Yields:
+        Tuples containing:
+        - chunk_path: Path to the temporary chunk file
+        - metadata: Dictionary containing chunk metadata including:
+            - start_ts: Start timestamp of the chunk
+            - end_ts: End timestamp of the chunk
+            - overlap_left: Left overlap duration
+            - overlap_right: Right overlap duration
+            - chunk_count: Total number of chunks
+            - chunk_idx: Index of this chunk (1-based)
+            - fps: Video frame rate
+            - settings: Video encoding settings used
 
-        The metadata contains the following keys:
-        - start_time: The start time of the chunk in seconds.
-        - end_time: The end time of the chunk in seconds.
-        - fps: The frames per second of the video.
-        - local_uri: The path to the chunk file.
-        - settings: The settings used to create the chunk.
+    Note:
+        The temporary files are automatically cleaned up when the generator
+        is exhausted or when the temporary directory context exits.
+
+    Example:
+        >>> from moviepy import VideoFileClip
+        >>> video = VideoFileClip("large_video.mp4")
+        >>> for chunk_path, metadata in chunk_video(video, 30.0, 5.0):
+        ...     print(f"Chunk {metadata['chunk_idx']}: {chunk_path}")
+        ...     # Process the chunk...
+        ...     # The file will be automatically cleaned up
 
     """
-    with VideoFileClip(video_path) as clip:
-        duration = clip.duration
-        fps = clip.fps
-        chunks = calculate_chunk_boundaries(duration, chunk_duration, overlap)
-        num_chunks = len(chunks)
-        chunk_settings = {
-            "codec": "libx264",
-            "audio_codec": "aac",
-        }
-        _chunk_pointers = []
-        with tempfile.TemporaryDirectory() as temp_dir:
-            for chunk_index, (start_time, end_time) in enumerate(chunks, start=1):
-                chunk_clip = clip.subclipped(start_time, end_time)
-                chunk_filename = f"chunk_{chunk_index:06d}_{num_chunks:06d}.mp4"
-                chunk_path = f"{temp_dir}/{chunk_filename}"
-                chunk_clip.write_videofile(chunk_path, **chunk_settings)
+    duration = full_video.duration
+    fps = full_video.fps
+    chunks = calculate_chunk_boundaries(duration, chunk_duration, overlap)
+    num_chunks = len(chunks)
+    chunk_settings = {
+        "codec": "libx264",
+        "audio_codec": "aac",
+    }
+    _chunk_pointers = []
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for chunk_index, chunk_boundary in enumerate(chunks, start=1):
+            chunk_clip = full_video.subclipped(chunk_boundary.left, chunk_boundary.right)
+            chunk_filename = f"chunk_{chunk_index:06d}_{num_chunks:06d}.mp4"
+            chunk_path = f"{temp_dir}/{chunk_filename}"
+            chunk_clip.write_videofile(chunk_path, **chunk_settings)
 
-                metadata = {
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "fps": fps,
-                    "local_uri": chunk_path,
-                    "settings": chunk_settings,
-                }
-                yield metadata
-                _chunk_pointers.append(chunk_clip)
+            metadata = {
+                "start_ts": chunk_boundary.start_ts,
+                "end_ts": chunk_boundary.end_ts,
+                "overlap_left": chunk_boundary.overlap_left,
+                "overlap_right": chunk_boundary.overlap_right,
+                "chunk_count": num_chunks,
+                "chunk_idx": chunk_index,
+                "fps": fps,
+                "settings": chunk_settings,
+            }
+            yield chunk_path, metadata
+            _chunk_pointers.append(chunk_clip)
 
-            for chunk_pointer in _chunk_pointers:
-                chunk_pointer.close()
+        for chunk_pointer in _chunk_pointers:
+            chunk_pointer.close()

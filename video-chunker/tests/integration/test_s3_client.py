@@ -21,15 +21,15 @@ def test_s3_client(s3, raw_video_bucket, fixture_path):
 
     minio_client = s3.get_client()
     s3_client = S3Client(
-        bucket_name=raw_video_bucket,
         endpoint_url=f"http://{s3_host}:{s3_port}",
         aws_access_key_id="minioadmin",
         aws_secret_access_key="minioadmin",
     )
 
     s3_client.upload_file(
-        fixture_path("smallest.mp4"),
-        "smallest.mp4",
+        bucket_name=raw_video_bucket,
+        file_path=fixture_path("smallest.mp4"),
+        s3_key="smallest.mp4",
     )
 
     uploaded_object = minio_client.stat_object(bucket_name=raw_video_bucket, object_name="smallest.mp4")

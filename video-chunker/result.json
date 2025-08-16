@@ -1,0 +1,42 @@
+{
+  "chunk_count": 2,
+  "chunks": [
+    {
+      "chunk_count": 2,
+      "chunk_idx": 1,
+      "end_ts": 5,
+      "fps": 25.0,
+      "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000001_000002.mp4",
+      "overlap_left": 0.0,
+      "overlap_right": 1,
+      "settings": {
+        "audio_codec": "aac",
+        "codec": "libx264"
+      },
+      "start_ts": 0,
+      "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000001_000002.mp4",
+      "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+    },
+    {
+      "chunk_count": 2,
+      "chunk_idx": 2,
+      "end_ts": 10,
+      "fps": 25.0,
+      "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
+      "overlap_left": 1,
+      "overlap_right": 0.0,
+      "settings": {
+        "audio_codec": "aac",
+        "codec": "libx264"
+      },
+      "start_ts": 5,
+      "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
+      "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+    }
+  ],
+  "duration": 10.0,
+  "fps": 25.0,
+  "original_name": "smallest.mp4",
+  "uri": "s3://raw-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/tmp8xp2d3ll.mp4",
+  "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+}

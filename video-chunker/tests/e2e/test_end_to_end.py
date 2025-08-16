@@ -1,4 +1,5 @@
 import time
+from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import pytest
@@ -22,6 +23,20 @@ def raw_video_bucket(s3):
 
 
 @pytest.fixture
+def chunked_video_bucket(s3):
+    bucket_name = "chunked-videos"
+    client = s3.get_client()
+    client.make_bucket(bucket_name)
+    yield bucket_name
+    objects = client.list_objects(bucket_name=bucket_name, recursive=True)
+
+    for obj in objects:
+        if not obj.is_dir:
+            client.remove_object(bucket_name=bucket_name, object_name=obj.object_name)
+    client.remove_bucket(bucket_name)
+
+
+@pytest.fixture
 def video_chunker_container(test_network):
     image = DockerImage(path=".", tag="video-chunker")
     image.build()
@@ -29,12 +44,15 @@ def video_chunker_container(test_network):
     return container
 
 
-def test_end_to_end(s3, video_chunker_container, fixture_path, raw_video_bucket):
+def test_end_to_end(
+    s3, chunked_video_bucket, video_chunker_container, fixture_path, raw_video_bucket, get_json_fixture
+):
     storage_client = s3.get_client()
     video_chunker_container.with_env("STORAGE__ENDPOINT_URL", "http://s3:9000")
     video_chunker_container.with_env("STORAGE__ACCESS_KEY_ID", "minioadmin")
     video_chunker_container.with_env("STORAGE__SECRET_ACCESS_KEY", "minioadmin")
-    video_chunker_container.with_env("STORAGE__BUCKET", raw_video_bucket)
+    video_chunker_container.with_env("STORAGE__RAW_VIDEO_BUCKET", raw_video_bucket)
+    video_chunker_container.with_env("STORAGE__CHUNKED_VIDEO_BUCKET", chunked_video_bucket)
     video_chunker_container.start()
 
     time.sleep(1)
@@ -53,10 +71,27 @@ def test_end_to_end(s3, video_chunker_container, fixture_path, raw_video_bucket)
             [stdout, stderr] = video_chunker_container.get_logs()
             assert False, f"Failed to chunk video: {e}\n{stdout.decode('utf-8')}\n{stderr.decode('utf-8')}"
 
-    result_chunks = result["chunks"]
+    expected_response = get_json_fixture("smallest_upload_response.json")
 
-    for chunk in result_chunks:
-        s3_url = chunk["s3_url"]
-        s3_key = urlparse(s3_url).path.lstrip("/")
-        s3_object = storage_client.stat_object(bucket_name=raw_video_bucket, object_name=s3_key)
+    [stdout, stderr] = video_chunker_container.get_logs()
+
+    video_id = result["video_id"]
+    expected_response["video_id"] = video_id
+
+    raw_video_uri = result.pop("uri")
+    s3_key = urlparse(raw_video_uri).path.lstrip("/")
+    s3_object = storage_client.stat_object(bucket_name=raw_video_bucket, object_name=s3_key)
+    result["uri"] = ANY
+    assert s3_object
+
+    for chunk in result["chunks"]:
+        chunk_uri = chunk.pop("uri")
+        s3_key = urlparse(chunk_uri).path.lstrip("/")
+        s3_object = storage_client.stat_object(bucket_name=chunked_video_bucket, object_name=s3_key)
+        chunk["uri"] = ANY
+        chunk["id"] = ANY
+        assert chunk["video_id"] == video_id
+        chunk["video_id"] = ANY
         assert s3_object
+
+    assert result == expected_response
