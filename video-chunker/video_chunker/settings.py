@@ -9,7 +9,14 @@ class StorageSettings(BaseSettings):
     endpoint_url: str | None = None
 
 
+class KafkaSettings(BaseSettings):
+    bootstrap_servers: str
+    security_protocol: str
+    chunks_topic: str
+
+
 class ChunkerSettings(BaseSettings):
     model_config = SettingsConfigDict(env_nested_delimiter="__")
 
     storage: StorageSettings
+    kafka: KafkaSettings

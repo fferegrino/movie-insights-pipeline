@@ -1,16 +1,25 @@
+import json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from confluent_kafka import Producer
 from moviepy import VideoFileClip
 
 from video_chunker.chunking import chunk_video
 from video_chunker.s3 import S3Client
-from video_chunker.settings import ChunkerSettings, StorageSettings
+from video_chunker.settings import ChunkerSettings, KafkaSettings, StorageSettings
 
 # Configuration constants
 CHUNK_DURATION = 5
 OVERLAP = 1
+
+
+def get_producer(kafka_settings: KafkaSettings) -> Producer:
+    """Create and configure a Kafka producer instance."""
+    return Producer(
+        {"bootstrap.servers": kafka_settings.bootstrap_servers, "security.protocol": kafka_settings.security_protocol}
+    )
 
 
 def get_s3_client(storage_settings: StorageSettings) -> S3Client:
@@ -139,6 +148,7 @@ def process_video(video_path: Path, original_filename: Path) -> dict[str, Any]:
     # Initialize settings and S3 client
     chunker_settings = ChunkerSettings()
     s3_client = get_s3_client(chunker_settings.storage)
+    producer = get_producer(chunker_settings.kafka)
 
     # Generate unique video ID
     video_id = str(uuid4())
@@ -172,7 +182,12 @@ def process_video(video_path: Path, original_filename: Path) -> dict[str, Any]:
             bucket_name=chunker_settings.storage.chunked_video_bucket,
         )
 
+        # Produce chunks to Kafka
+        for chunk in chunks:
+            producer.produce(chunker_settings.kafka.chunks_topic, json.dumps(chunk).encode("utf-8"))
+
         # Add chunks to final metadata
         raw_video_metadata["chunks"] = chunks
 
+    producer.flush()
     return raw_video_metadata

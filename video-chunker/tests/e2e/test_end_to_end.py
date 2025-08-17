@@ -1,11 +1,23 @@
+import json
 import time
 from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import pytest
 import requests
+from confluent_kafka import Consumer
+from confluent_kafka.admin import AdminClient, NewTopic
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.image import DockerImage
+
+
+@pytest.fixture
+def raw_chunks_topic(kafka):
+    t = "raw-chunks"
+    client = AdminClient({"bootstrap.servers": kafka.get_bootstrap_server()})
+    client.create_topics([NewTopic(t, 1, 1)])
+    yield t
+    client.delete_topics([t])
 
 
 @pytest.fixture
@@ -44,8 +56,30 @@ def video_chunker_container(test_network):
     return container
 
 
+def read_messages(consumer, topic, count, timeout=10):
+    consumer.subscribe([topic])
+    messages = []
+    start_time = time.time()
+    while len(messages) < count and time.time() - start_time < timeout:
+        message = consumer.poll(timeout=1.0)
+        if message is None:
+            continue
+        if message.error():
+            raise Exception(message.error())
+
+        messages.append(json.loads(message.value().decode("utf-8")))
+    return messages
+
+
 def test_end_to_end(
-    s3, chunked_video_bucket, video_chunker_container, fixture_path, raw_video_bucket, get_json_fixture
+    s3,
+    chunked_video_bucket,
+    video_chunker_container,
+    fixture_path,
+    raw_video_bucket,
+    raw_chunks_topic,
+    get_json_fixture,
+    kafka,
 ):
     storage_client = s3.get_client()
     video_chunker_container.with_env("STORAGE__ENDPOINT_URL", "http://s3:9000")
@@ -53,6 +87,9 @@ def test_end_to_end(
     video_chunker_container.with_env("STORAGE__SECRET_ACCESS_KEY", "minioadmin")
     video_chunker_container.with_env("STORAGE__RAW_VIDEO_BUCKET", raw_video_bucket)
     video_chunker_container.with_env("STORAGE__CHUNKED_VIDEO_BUCKET", chunked_video_bucket)
+    video_chunker_container.with_env("KAFKA__CHUNKS_TOPIC", raw_chunks_topic)
+    video_chunker_container.with_env("KAFKA__BOOTSTRAP_SERVERS", "kafka:9092")
+    video_chunker_container.with_env("KAFKA__SECURITY_PROTOCOL", "PLAINTEXT")
     video_chunker_container.start()
 
     time.sleep(1)
@@ -95,3 +132,21 @@ def test_end_to_end(
         assert s3_object
 
     assert result == expected_response
+
+    consumer = Consumer(
+        {
+            "bootstrap.servers": kafka.get_bootstrap_server(),
+            "group.id": "test-group-23132",
+            "security.protocol": "PLAINTEXT",
+            "auto.offset.reset": "earliest",
+        }
+    )
+
+    messages = read_messages(consumer, raw_chunks_topic, 2)
+
+    assert len(messages) == 2, f"Unable to read all messages\n{stdout.decode('utf-8')}\n{stderr.decode('utf-8')}"
+
+    for message in messages:
+        s3_key = urlparse(message["uri"]).path.lstrip("/")
+        s3_object = storage_client.stat_object(bucket_name=chunked_video_bucket, object_name=s3_key)
+        assert s3_object

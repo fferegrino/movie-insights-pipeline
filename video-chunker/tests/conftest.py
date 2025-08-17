@@ -5,6 +5,7 @@ from unittest.mock import ANY
 
 import pytest
 from testcontainers.core.network import Network
+from testcontainers.kafka import KafkaContainer
 from testcontainers.minio import MinioContainer
 
 
@@ -63,3 +64,12 @@ def s3(test_network):
     minio.with_network(test_network)
     with minio:
         yield minio
+
+
+@pytest.fixture
+def kafka(test_network):
+    kafka = KafkaContainer()
+    kafka.with_name("kafka")
+    kafka.with_network(test_network)
+    with kafka:
+        yield kafka
