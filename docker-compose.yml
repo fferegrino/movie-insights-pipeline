@@ -21,6 +21,52 @@ services:
       retries: 3
     restart: unless-stopped
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_HOST://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # Container to create buckets on startup
   bucket-init:
     image: minio/mc:latest
@@ -39,11 +85,39 @@ services:
     command: ["init-buckets.sh"]
     restart: "no"
 
+  # Container to create Kafka topics on startup
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka-topic-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/scripts
+    working_dir: /scripts
+    entrypoint: ["/bin/sh"]
+    command: ["init-kafka.sh"]
+    restart: "no"
+
   video-chunker:
     build:
       context: ./video-chunker
       dockerfile: Dockerfile
     container_name: video-chunker
+    depends_on:
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      STORAGE__RAW_VIDEO_BUCKET: raw-data
+      STORAGE__CHUNKED_VIDEO_BUCKET: chunked-data
+      STORAGE__ACCESS_KEY_ID: minioadmin
+      STORAGE__SECRET_ACCESS_KEY: minioadmin
+      STORAGE__ENDPOINT_URL: http://minio:9000
+      KAFKA__BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA__SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA__CHUNKS_TOPIC: video-chunks
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -54,6 +128,12 @@ services:
 
 volumes:
   minio_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
     driver: local
 
 networks:
