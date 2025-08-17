@@ -1,0 +1,11 @@
+auth:
+  type: DISABLED
+kafka:
+  clusters:
+  - bootstrapServers: broker:29092
+    name: "Kafka broker in Docker"
+    properties: {}
+    readOnly: true
+rbac:
+  roles: []
+webclient: {}

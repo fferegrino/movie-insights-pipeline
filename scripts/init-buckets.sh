@@ -14,6 +14,7 @@ ALIAS_NAME="minio-server"
 # Buckets to create (add or remove as needed)
 BUCKETS=(
     "$RAW_DATA_BUCKET"
+    "$CHUNKED_DATA_BUCKET"
 )
 
 # Wait for MinIO to be ready

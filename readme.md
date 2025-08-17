@@ -10,10 +10,25 @@
 
   - **Web Interface**: A browser-based console to manage files and buckets
 
+- **Kafka**: A message broker that allows you to send and receive messages between different services
+
+  - **Topic Initialization**: Automatically creates Kafka topics when you start the services
+
+  - **Kafka UI**: A web interface to manage Kafka topics and messages
+
+- **Video Chunker**: A service that chunks videos into smaller chunks
+
 ## Quick Start
 
 ```bash
 docker-compose up -d
+```
+
+### Upload a video
+
+```bash
+curl -i -X POST http://localhost:8000/chunk-video \
+    -F "video=@$PWD/video-chunker/tests/fixtures/smallest.mp4;type=video/mp4"
 ```
 
 ### Stopping
