@@ -100,7 +100,7 @@ services:
 
   video-chunker:
     build:
-      context: ./video-chunker
+      context: ./services/video-chunker
       dockerfile: Dockerfile
     container_name: video-chunker
     depends_on:
