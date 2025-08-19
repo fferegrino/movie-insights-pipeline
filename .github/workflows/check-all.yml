@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        folder: [video-chunker]
+        folder: [video-chunker, scene-detector]
     
     steps:
     - name: Checkout code
@@ -32,23 +32,23 @@ jobs:
           ${{ runner.os }}-uv-${{ matrix.folder }}-
 
     - name: Install dependencies
-      working-directory: ${{ matrix.folder }}
+      working-directory: services/${{ matrix.folder }}
       run: |
         uv sync --frozen
 
     - name: Run linting
-      working-directory: ${{ matrix.folder }}
+      working-directory: services/${{ matrix.folder }}
       run: make lint
 
     - name: Run unit tests
-      working-directory: ${{ matrix.folder }}
+      working-directory: services/${{ matrix.folder }}
       run: make unit-tests
 
     - name: Run integration tests
-      working-directory: ${{ matrix.folder }}
+      working-directory: services/${{ matrix.folder }}
       run: make integration-tests
 
     - name: Run e2e tests
-      working-directory: ${{ matrix.folder }}
+      working-directory: services/${{ matrix.folder }}
       run: make e2e-tests
 
