@@ -2,7 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from confluent_kafka import Consumer
+from confluent_kafka import Consumer, Producer
 from redis import Redis
 
 from scene_detector.fingerprint import compute_fingerprint
@@ -31,8 +31,14 @@ consumer = Consumer(
 )
 
 
-consumer.subscribe([settings.kafka.chunks_topic])
+producer = Producer(
+    {
+        "bootstrap.servers": settings.kafka.bootstrap_servers,
+        "security.protocol": settings.kafka.security_protocol,
+    }
+)
 
+consumer.subscribe([settings.kafka.chunks_topic])
 
 redis_client = Redis(host=settings.redis.host, port=settings.redis.port, decode_responses=True)
 index = RedisSceneIndex(redis_client)
@@ -62,3 +68,19 @@ while True:
             scene.fingerprint = compute_fingerprint(scene.keyframe)
             scene.video_id = video_id
             assigner.assign(scene)
+
+            producer.produce(
+                settings.kafka.scenes_topic,
+                json.dumps(
+                    {
+                        "video_id": video_id,
+                        "scene_id": scene.scene_id,
+                        "frame_start": scene.frame_start,
+                        "frame_end": scene.frame_end,
+                        "start_time": scene.start_time,
+                        "end_time": scene.end_time,
+                    }
+                ).encode("utf-8"),
+            )
+
+        producer.flush()

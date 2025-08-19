@@ -26,6 +26,15 @@ def raw_chunks_topic(kafka):
 
 
 @pytest.fixture
+def scenes_topic(kafka):
+    t = "scenes"
+    client = AdminClient({"bootstrap.servers": kafka.get_bootstrap_server()})
+    client.create_topics([NewTopic(t, 1, 1)])
+    yield t
+    client.delete_topics([t])
+
+
+@pytest.fixture
 def chunked_video_bucket(s3):
     bucket_name = "chunked-videos"
     client = s3.get_client()
@@ -39,7 +48,7 @@ def chunked_video_bucket(s3):
     client.remove_bucket(bucket_name)
 
 
-def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic, chunked_video_bucket):
+def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic, scenes_topic, chunked_video_bucket):
     s3_client = s3.get_client()
     scene_detector_container.with_env("PYTHONUNBUFFERED", "1")
     scene_detector_container.with_env("STORAGE__ENDPOINT_URL", "http://s3:9000")
@@ -48,6 +57,7 @@ def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic
     scene_detector_container.with_env("KAFKA__BOOTSTRAP_SERVERS", "kafka:9092")
     scene_detector_container.with_env("KAFKA__SECURITY_PROTOCOL", "PLAINTEXT")
     scene_detector_container.with_env("KAFKA__CHUNKS_TOPIC", raw_chunks_topic)
+    scene_detector_container.with_env("KAFKA__SCENES_TOPIC", scenes_topic)
     scene_detector_container.with_env("KAFKA__GROUP_ID", "test-group-23132")
     scene_detector_container.with_env("KAFKA__AUTO_OFFSET_RESET", "earliest")
     scene_detector_container.with_env("REDIS__HOST", "redis")
@@ -107,3 +117,26 @@ def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic
     assert message_value == chunk_message
 
     scene_detector_container.start()
+
+    time.sleep(10)
+
+    consumer.unsubscribe()
+    consumer.close()
+
+    consumer = Consumer(
+        {
+            "bootstrap.servers": kafka.get_bootstrap_server(),
+            "group.id": "test-group-23132322",
+            "security.protocol": "PLAINTEXT",
+            "auto.offset.reset": "earliest",
+        }
+    )
+    consumer.subscribe([scenes_topic])
+    time.sleep(1)
+    message = consumer.poll(timeout=1.0)
+    if message is None:
+        raise Exception("No message received")
+    if message.error():
+        raise Exception(message.error())
+
+    message_value = json.loads(message.value().decode("utf-8"))

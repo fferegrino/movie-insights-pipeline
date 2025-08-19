@@ -18,6 +18,7 @@ class KafkaSettings(BaseSettings):
     security_protocol: str
     chunks_topic: str
     auto_offset_reset: str
+    scenes_topic: str
 
 
 class SceneDetectorSettings(BaseSettings):
