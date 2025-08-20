@@ -18,7 +18,7 @@ def scene_detector_container(test_network):
 
 @pytest.fixture
 def raw_chunks_topic(kafka):
-    t = "raw-chunks"
+    t = "video-chunks"
     client = AdminClient({"bootstrap.servers": kafka.get_bootstrap_server()})
     client.create_topics([NewTopic(t, 1, 1)])
     yield t
@@ -48,7 +48,9 @@ def chunked_video_bucket(s3):
     client.remove_bucket(bucket_name)
 
 
-def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic, scenes_topic, chunked_video_bucket):
+def test_end_to_end(
+    s3, kafka, redis, scene_detector_container, raw_chunks_topic, scenes_topic, chunked_video_bucket, fixture_path
+):
     s3_client = s3.get_client()
     scene_detector_container.with_env("PYTHONUNBUFFERED", "1")
     scene_detector_container.with_env("STORAGE__ENDPOINT_URL", "http://s3:9000")
@@ -66,7 +68,7 @@ def test_end_to_end(s3, kafka, redis, scene_detector_container, raw_chunks_topic
     s3_client.fput_object(
         bucket_name=chunked_video_bucket,
         object_name="78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-        file_path="vid.mp4",
+        file_path=fixture_path("videos/big_buck_bunny_01@480p30.mp4"),
     )
 
     # Wait for the container to start
