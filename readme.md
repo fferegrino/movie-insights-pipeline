@@ -28,7 +28,7 @@ docker-compose up -d
 
 ```bash
 curl -i -X POST http://localhost:8000/chunk-video \
-    -F "video=@$PWD/services/video-chunker/tests/fixtures/smallest.mp4;type=video/mp4"
+    -F "video=@$PWD/movies/pizza-conversation.mp4;type=video/mp4"
 ```
 
 ### Stopping

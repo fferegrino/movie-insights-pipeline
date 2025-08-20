@@ -69,6 +69,8 @@ while True:
             scene.video_id = video_id
             assigner.assign(scene)
 
+            print(f"Producing scene {scene.scene_id} for video {video_id} to topic {settings.kafka.scenes_topic}")
+
             producer.produce(
                 settings.kafka.scenes_topic,
                 json.dumps(

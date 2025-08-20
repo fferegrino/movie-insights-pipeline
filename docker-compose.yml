@@ -21,6 +21,11 @@ services:
       retries: 3
     restart: unless-stopped
 
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+
   kafka:
     image: confluentinc/cp-kafka:latest
     hostname: broker
@@ -117,6 +122,7 @@ services:
       KAFKA__BOOTSTRAP_SERVERS: kafka:29092
       KAFKA__SECURITY_PROTOCOL: PLAINTEXT
       KAFKA__CHUNKS_TOPIC: video-chunks
+      PYTHONUNBUFFERED: 1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -124,6 +130,30 @@ services:
       retries: 3
     ports:
       - "8000:8000"
+
+  scene-detector:
+    build:
+      context: ./services/scene-detector
+      dockerfile: Dockerfile
+    container_name: scene-detector
+    depends_on:
+      minio:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      STORAGE__ENDPOINT_URL: http://minio:9000
+      STORAGE__ACCESS_KEY_ID: minioadmin
+      STORAGE__SECRET_ACCESS_KEY: minioadmin
+      KAFKA__BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA__SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA__CHUNKS_TOPIC: video-chunks
+      KAFKA__SCENES_TOPIC: scenes
+      KAFKA__GROUP_ID: scene-detector
+      KAFKA__AUTO_OFFSET_RESET: earliest
+      REDIS__HOST: redis
+      REDIS__PORT: 6379
+      PYTHONUNBUFFERED: 1
 
 volumes:
   minio_data:

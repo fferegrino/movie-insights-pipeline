@@ -9,16 +9,23 @@ done
 
 echo "Kafka is ready!"
 
-# Create the video-chunks topic if it doesn't exist
-echo "Creating video-chunks topic..."
-kafka-topics --bootstrap-server kafka:29092 \
-  --create \
-  --topic video-chunks \
-  --partitions 3 \
-  --replication-factor 1 \
-  --if-not-exists
+topics=(
+  "raw-videos"
+  "video-chunks"
+  "scenes"
+)
 
-echo "Topic 'video-chunks' created successfully!"
+for topic in "${topics[@]}"; do
+  echo "Creating $topic topic..."
+  kafka-topics --bootstrap-server kafka:29092 \
+    --create \
+    --topic $topic \
+    --partitions 3 \
+    --replication-factor 1 \
+    --if-not-exists
+
+  echo "Topic '$topic' created successfully!"
+done
 
 # List all topics to verify
 echo "Available topics:"
