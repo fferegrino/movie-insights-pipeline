@@ -1,5 +1,6 @@
 import json
 import tempfile
+import time
 from pathlib import Path
 
 from confluent_kafka import Consumer, Producer
@@ -11,6 +12,12 @@ from scene_detector.s3 import S3Client
 from scene_detector.scenes import detect_scenes
 from scene_detector.settings import SceneDetectorSettings
 from scene_detector.storage.redis_scene_index import RedisSceneIndex
+from scene_detector.telemetry import (
+    detected_scenes,
+    start_metrics_server,
+    video_chunks_processed,
+    video_chunks_processed_duration,
+)
 
 settings = SceneDetectorSettings()
 
@@ -44,6 +51,7 @@ redis_client = Redis(host=settings.redis.host, port=settings.redis.port, decode_
 index = RedisSceneIndex(redis_client)
 assigner = IdAssigner(index)
 
+start_metrics_server()
 
 while True:
     message = consumer.poll(timeout=1.0)
@@ -57,6 +65,10 @@ while True:
     uri = message_value["uri"]
     video_id = message_value["video_id"]
 
+    video_chunks_processed.add(1, {"video_id": video_id})
+
+    start_time = time.time()
+
     with tempfile.NamedTemporaryFile(prefix=f"{video_id}-", suffix=".mp4") as temp_file:
         s3_client.download_file(uri, Path(temp_file.name))
 
@@ -69,6 +81,7 @@ while True:
             scene.video_id = video_id
             assigner.assign(scene)
 
+            detected_scenes.add(1, {"video_id": video_id})
             print(f"Producing scene {scene.scene_id} for video {video_id} to topic {settings.kafka.scenes_topic}")
 
             producer.produce(
@@ -84,5 +97,7 @@ while True:
                     }
                 ).encode("utf-8"),
             )
+
+        video_chunks_processed_duration.record(time.time() - start_time)
 
         producer.flush()

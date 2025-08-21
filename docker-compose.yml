@@ -155,6 +155,16 @@ services:
       REDIS__PORT: 6379
       PYTHONUNBUFFERED: 1
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"   
+    # networks:
+    #   - monitoring
+
 volumes:
   minio_data:
     driver: local
