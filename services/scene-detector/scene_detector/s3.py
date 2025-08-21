@@ -195,7 +195,6 @@ class S3Client:
         parsed_url = urlparse(uri)
         bucket = parsed_url.netloc
         key = parsed_url.path.lstrip("/")
-        print(f"Downloading {bucket} {key} to {local_path}")
         self.client.download_file(bucket, key, str(local_path))
 
     def upload_video(
