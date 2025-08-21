@@ -28,6 +28,8 @@ class ChunkBoundary:
     Attributes:
         start_ts: The start timestamp of the chunk (in seconds)
         end_ts: The end timestamp of the chunk (in seconds)
+        frame_start: The start frame of the chunk relative to the original video (in frames)
+        frame_end: The end frame of the chunk relative to the original video (in frames)
         overlap_left: Overlap duration extending before the start timestamp
         overlap_right: Overlap duration extending after the end timestamp
 
@@ -39,6 +41,8 @@ class ChunkBoundary:
 
     start_ts: float
     end_ts: float
+    frame_start: int
+    frame_end: int
     overlap_left: float
     overlap_right: float
 
@@ -65,7 +69,9 @@ class ChunkBoundary:
         return self.end_ts + self.overlap_right
 
 
-def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: float) -> list[ChunkBoundary]:
+def calculate_chunk_boundaries(
+    duration: float, chunk_duration: float, overlap: float, fps: float
+) -> list[ChunkBoundary]:
     """
     Calculate the boundaries for video chunks based on duration and overlap settings.
 
@@ -77,6 +83,7 @@ def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: 
         duration: Total duration of the video in seconds
         chunk_duration: Target duration for each chunk in seconds
         overlap: Overlap duration between consecutive chunks in seconds
+        fps: Frame rate of the video
 
     Returns:
         List of ChunkBoundary objects defining each chunk's temporal boundaries
@@ -122,7 +129,10 @@ def calculate_chunk_boundaries(duration: float, chunk_duration: float, overlap: 
         if i != num_chunks - 1:
             overlap_right = overlap
 
-        chunks.append(ChunkBoundary(start_time, end_time, overlap_left, overlap_right))
+        frame_start = int(start_time * fps)
+        frame_end = int(end_time * fps)
+
+        chunks.append(ChunkBoundary(start_time, end_time, frame_start, frame_end, overlap_left, overlap_right))
 
     return chunks
 
@@ -173,7 +183,7 @@ def chunk_video(
     """
     duration = full_video.duration
     fps = full_video.fps
-    chunks = calculate_chunk_boundaries(duration, chunk_duration, overlap)
+    chunks = calculate_chunk_boundaries(duration, chunk_duration, overlap, fps)
     num_chunks = len(chunks)
     chunk_settings = {
         "codec": "libx264",
@@ -192,6 +202,8 @@ def chunk_video(
                 "end_ts": chunk_boundary.end_ts,
                 "overlap_left": chunk_boundary.overlap_left,
                 "overlap_right": chunk_boundary.overlap_right,
+                "frame_start": chunk_boundary.frame_start,
+                "frame_end": chunk_boundary.frame_end,
                 "chunk_count": num_chunks,
                 "chunk_idx": chunk_index,
                 "fps": fps,
