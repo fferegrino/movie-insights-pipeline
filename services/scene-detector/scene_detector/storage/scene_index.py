@@ -8,6 +8,8 @@ fingerprints with similarity matching capabilities.
 
 from abc import ABC, abstractmethod
 
+from scene_detector.entities import Scene
+
 
 class SceneIndex(ABC):
     """
@@ -23,14 +25,13 @@ class SceneIndex(ABC):
     """
 
     @abstractmethod
-    def add_scene_fingerprint(self, video_id: str, scene_id: str, fingerprint: str):
+    def add_scene(self, scene: Scene):
         """
         Add a scene fingerprint to the storage backend.
 
         Args:
-            video_id: Unique identifier for the video
-            scene_id: Unique identifier for the scene within the video
-            fingerprint: Fingerprint data for the scene
+            scene: Scene object to add to the storage backend, it should contain
+                all the information to identify the scene, including a `scene_id`.
 
         """
 
@@ -49,13 +50,12 @@ class SceneIndex(ABC):
         """
 
     @abstractmethod
-    def find_match(self, video_id: str, fingerprint: str) -> str:
+    def find_match(self, scene: Scene) -> str:
         """
-        Find a matching scene fingerprint within the similarity threshold.
+        Find a matching scene in the index.
 
         Args:
-            video_id: Unique identifier for the video to search within
-            fingerprint: Fingerprint data to match against
+            scene: Scene object to search for in the index.
 
         Returns:
             Scene ID of the first matching scene, or None if no match found

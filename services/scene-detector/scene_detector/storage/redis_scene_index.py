@@ -1,5 +1,6 @@
 import redis
 
+from scene_detector.entities import Scene
 from scene_detector.fingerprint import fingerprint_distance
 from scene_detector.storage.scene_index import SceneIndex
 
@@ -76,7 +77,7 @@ class RedisSceneIndex(SceneIndex):
         """
         return f"video:{video_id}:scenes"
 
-    def add_scene_fingerprint(self, video_id: str, scene_id: str, fingerprint: str):
+    def add_scene(self, scene: Scene):
         """
         Add a scene fingerprint to the Redis index.
 
@@ -85,15 +86,15 @@ class RedisSceneIndex(SceneIndex):
         given scene, it will be overwritten.
 
         Args:
-            video_id (str): Unique identifier for the video
-            scene_id (str): Unique identifier for the scene within the video
-            fingerprint (str): Fingerprint data for the scene
+            scene: Scene object to add to the storage backend, it should contain
+                all the information to identify the scene, including a `scene_id`
+                and a `fingerprint`.
 
         Example:
-            >>> scene_index.add_scene_fingerprint("video_123", "scene_1", "abc123...")
+            >>> scene_index.add_scene(Scene(video_id="video_123", scene_id="scene_1", fingerprint="abc123..."))
 
         """
-        self.redis_client.hset(self._key(video_id), scene_id, fingerprint)
+        self.redis_client.hset(self._key(scene.video_id), scene.scene_id, scene.fingerprint)
 
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         """
@@ -114,7 +115,7 @@ class RedisSceneIndex(SceneIndex):
         """
         return self.redis_client.hget(self._key(video_id), scene_id)
 
-    def find_match(self, video_id: str, fingerprint: str) -> str:
+    def find_match(self, scene: Scene) -> str:
         """
         Find a matching scene fingerprint within the specified threshold.
 
@@ -123,23 +124,22 @@ class RedisSceneIndex(SceneIndex):
         scene ID whose fingerprint distance is less than or equal to the threshold.
 
         Args:
-            video_id (str): Unique identifier for the video to search within
-            fingerprint (str): Fingerprint data to match against
+            scene: Scene object to search for similarity in the index.
 
         Returns:
             str: Scene ID of the first matching scene, or None if no match found
 
         Example:
-            >>> match_scene = scene_index.find_match("video_123", "query_fingerprint")
+            >>> match_scene = scene_index.find_match(Scene(video_id="video_123", fingerprint="query_fingerprint"))
             >>> if match_scene:
             ...     print(f"Found matching scene: {match_scene}")
             >>> else:
             ...     print("No matching scene found")
 
         """
-        fingerprints = self.redis_client.hgetall(self._key(video_id))
+        fingerprints = self.redis_client.hgetall(self._key(scene.video_id))
         for scene_id, stored_fp in fingerprints.items():
-            dist = fingerprint_distance(fingerprint, stored_fp)
+            dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
                 return scene_id
         return None

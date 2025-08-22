@@ -145,13 +145,13 @@ class IdAssigner:
         if not scene.fingerprint:
             raise ValueError("scene.fingerprint cannot be None or empty")
 
-        match_id = self.index.find_match(scene.video_id, scene.fingerprint)
+        match_id = self.index.find_match(scene)
 
         if match_id:
             scene.scene_id = match_id
         else:
             new_id = str(uuid.uuid4())
-            self.index.add_scene_fingerprint(scene.video_id, new_id, scene.fingerprint)
             scene.scene_id = new_id
+            self.index.add_scene(scene)
 
         return scene.scene_id

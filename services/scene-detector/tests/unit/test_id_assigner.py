@@ -10,20 +10,20 @@ from scene_detector.storage.scene_index import SceneIndex
 
 
 class InMemorySceneIndex(SceneIndex):
-    def __init__(self, threshold: int = 10):
+    def __init__(self, threshold: int = 400):
         self.scene_fingerprints = defaultdict(dict)  # video_id -> scene_id -> fingerprint
         self.threshold = threshold
 
-    def add_scene_fingerprint(self, video_id: str, scene_id: str, fingerprint: str):
-        self.scene_fingerprints[video_id][scene_id] = fingerprint
+    def add_scene(self, scene: Scene):
+        self.scene_fingerprints[scene.video_id][scene.scene_id] = scene.fingerprint
 
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         return self.scene_fingerprints[video_id][scene_id]
 
-    def find_match(self, video_id: str, fingerprint: str) -> str:
-        video_scenes = self.scene_fingerprints[video_id]
+    def find_match(self, scene: Scene) -> str:
+        video_scenes = self.scene_fingerprints[scene.video_id]
         for scene_id, stored_fp in video_scenes.items():
-            dist = fingerprint_distance(fingerprint, stored_fp)
+            dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
                 return scene_id
         return None
