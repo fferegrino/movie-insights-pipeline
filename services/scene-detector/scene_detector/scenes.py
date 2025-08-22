@@ -47,8 +47,8 @@ def detect_scenes(video_path, threshold=30.0, min_scene_len=2):
                 video_id=video_path.split("/")[0],
                 frame_start=start.get_frames(),
                 frame_end=end.get_frames(),
-                start_time=start_sec,
-                end_time=end_sec,
+                chunk_start_time=start_sec,
+                chunk_end_time=end_sec,
                 keyframe=frame,
             )
             results.append(scene)

@@ -96,8 +96,8 @@ class SceneDetector:
                 "scene_id": scene.scene_id,
                 "frame_start": scene.frame_start,
                 "frame_end": scene.frame_end,
-                "start_time": scene.start_time,
-                "end_time": scene.end_time,
+                "start_time": scene.chunk_start_time,
+                "end_time": scene.chunk_end_time,
             }
             chunks.append(info)
         return chunks

@@ -23,8 +23,8 @@ class Scene:
         ...     video_id="movie.mp4",
         ...     frame_start=100,
         ...     frame_end=150,
-        ...     start_time=4.0,
-        ...     end_time=6.0,
+        ...     chunk_start_time=4.0,
+        ...     chunk_end_time=6.0,
         ...     keyframe=np.zeros((480, 640, 3), dtype=np.uint8)
         ... )
 
@@ -39,10 +39,10 @@ class Scene:
     frame_end: int
     """Ending frame number (inclusive)."""
 
-    start_time: float
+    chunk_start_time: float
     """Start time in seconds."""
 
-    end_time: float
+    chunk_end_time: float
     """End time in seconds."""
 
     keyframe: np.ndarray

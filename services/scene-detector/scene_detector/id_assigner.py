@@ -47,8 +47,8 @@ class IdAssigner:
         ...     video_id="movie_123",
         ...     frame_start=100,
         ...     frame_end=150,
-        ...     start_time=4.0,
-        ...     end_time=6.0,
+        ...     chunk_start_time=4.0,
+        ...     chunk_end_time=6.0,
         ...     keyframe=np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8),
         ...     fingerprint="abc123def456"
         ... )
@@ -111,8 +111,8 @@ class IdAssigner:
             ...     video_id="video_123",
             ...     frame_start=0,
             ...     frame_end=30,
-            ...     start_time=0.0,
-            ...     end_time=1.0,
+            ...     chunk_start_time=0.0,
+            ...     chunk_end_time=1.0,
             ...     keyframe=np.zeros((480, 640, 3), dtype=np.uint8),
             ...     fingerprint="unique_fingerprint_123"
             ... )
@@ -127,8 +127,8 @@ class IdAssigner:
             ...     video_id="video_123",
             ...     frame_start=60,
             ...     frame_end=90,
-            ...     start_time=2.0,
-            ...     end_time=3.0,
+            ...     chunk_start_time=2.0,
+            ...     chunk_end_time=3.0,
             ...     keyframe=np.zeros((480, 640, 3), dtype=np.uint8),
             ...     fingerprint="unique_fingerprint_123"  # Same fingerprint
             ... )
