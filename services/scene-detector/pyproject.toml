@@ -75,6 +75,7 @@ ignore = [
     "PLR2004", # Magic value used in comparison, consider replacing `X` with a constant variable
     "PLR0913", # Too many arguments in function definition
 ]
+"experiments/**" = ["ALL"]
 
 [build-system]
 requires = ["hatchling"]
