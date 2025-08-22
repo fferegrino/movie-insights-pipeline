@@ -91,6 +91,7 @@ class SceneDetector:
             detected_scenes.add(1, {"video_id": video_id, "chunk_id": chunk_id, "scene_id": scene.scene_id})
 
             info = {
+                "chunk_id": chunk_id,
                 "video_id": video_id,
                 "scene_id": scene.scene_id,
                 "frame_start": scene.frame_start,
