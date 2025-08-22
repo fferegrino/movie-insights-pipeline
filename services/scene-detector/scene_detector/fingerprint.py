@@ -33,23 +33,21 @@ import numpy as np
 from PIL import Image
 
 _EXPECTED_NUM_CHANNELS = 3
+_HASH_SIZE = 32
 
 
-def compute_fingerprint(frame: np.ndarray, hash_size: int = 16) -> str:
+def compute_fingerprint(frame: np.ndarray) -> str:
     """
-    Compute a perceptual hash (pHash) for a video frame.
+    Compute a hash for a video frame.
 
-    Converts the input frame to a perceptual hash that can be used for
-    similarity comparison. The perceptual hash is robust to minor variations
+    Converts the input frame to a wavelet hash that can be used for
+    similarity comparison. The wavelet hash is robust to minor variations
     in lighting, compression artifacts, and small geometric transformations,
     making it ideal for detecting similar scenes in video content.
 
     Args:
         frame (np.ndarray): Input video frame as a numpy array with shape (height, width, channels).
                            Expected to be in RGB format with uint8 data type.
-        hash_size (int, optional): Size of the hash to generate. Larger values provide
-                                 more precision but require more computation. Must be a
-                                 power of 2. Defaults to 16.
 
     Returns:
         str: Hexadecimal string representation of the perceptual hash
@@ -69,10 +67,6 @@ def compute_fingerprint(frame: np.ndarray, hash_size: int = 16) -> str:
         >>> # Compute fingerprint with default hash size
         >>> fingerprint = compute_fingerprint(frame)
         >>> print(f"Fingerprint: {fingerprint}")
-        >>>
-        >>> # Compute fingerprint with larger hash size for more precision
-        >>> fingerprint_32 = compute_fingerprint(frame, hash_size=32)
-        >>> print(f"32-bit fingerprint: {fingerprint_32}")
 
     """
     if not isinstance(frame, np.ndarray):
@@ -84,12 +78,9 @@ def compute_fingerprint(frame: np.ndarray, hash_size: int = 16) -> str:
     if frame.dtype != np.uint8:
         raise ValueError("frame must have uint8 data type")
 
-    if hash_size < 1 or (hash_size & (hash_size - 1)) != 0:
-        raise ValueError("hash_size must be a positive power of 2")
-
     pil_img = Image.fromarray(frame)
 
-    hash_obj = imagehash.phash(pil_img, hash_size=hash_size)
+    hash_obj = imagehash.whash(pil_img, hash_size=_HASH_SIZE)
 
     return str(hash_obj)
 
@@ -137,7 +128,7 @@ def fingerprint_distance(hash1: str, hash2: str) -> int:
 
     """
     if not isinstance(hash1, str) or not isinstance(hash2, str):
-        raise TypeError("Both hash1 and hash2 must be strings")
+        raise TypeError(f"Both hash1 and hash2 must be strings, but got {type(hash1)} and {type(hash2)}")
 
     try:
         hash_obj1 = imagehash.hex_to_hash(hash1)

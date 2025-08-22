@@ -38,7 +38,7 @@ producer = Producer(
 
 
 redis_client = Redis(host=settings.redis.host, port=settings.redis.port, decode_responses=True)
-index = RedisSceneIndex(redis_client)
+index = RedisSceneIndex(redis_client, threshold=400)
 assigner = IdAssigner(index)
 
 start_metrics_server()
