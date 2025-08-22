@@ -40,10 +40,16 @@ class Scene:
     """Ending frame number (inclusive)."""
 
     chunk_start_time: float
-    """Start time in seconds."""
+    """Scene start time in seconds relative to the chunk."""
 
     chunk_end_time: float
-    """End time in seconds."""
+    """Scene end time in seconds relative to the chunk."""
+
+    video_start_time: float
+    """Scene start time in seconds relative to the video."""
+
+    video_end_time: float
+    """Scene end time in seconds relative to the video."""
 
     keyframe: np.ndarray
     """Representative frame as numpy array (BGR format)."""

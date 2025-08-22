@@ -41,6 +41,8 @@ def create_scene(video_id: str, image_array: np.ndarray):
         frame_end=10,
         chunk_start_time=0,
         chunk_end_time=10,
+        video_start_time=0,
+        video_end_time=10,
         keyframe=image_array,
         fingerprint=compute_fingerprint(image_array),
     )

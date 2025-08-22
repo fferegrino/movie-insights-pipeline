@@ -57,7 +57,7 @@ class SceneDetector:
         self.consumer = consumer
         self.producer = producer
 
-    def process_chunk(self, video_id: str, chunk_id: str, temp_file_path: str) -> list[dict]:
+    def process_chunk(self, video_id: str, chunk_id: str, temp_file_path: str, video_start_time: float) -> list[dict]:
         """
         Process a video chunk to detect scenes and extract keyframes.
 
@@ -69,6 +69,7 @@ class SceneDetector:
             video_id: Unique identifier for the video
             chunk_id: Unique identifier for the video chunk being processed
             temp_file_path: Path to the temporary video file to process
+            video_start_time: Start time of the chunk relative to the original video
 
         Returns:
             List of dictionaries containing scene information including:
@@ -80,7 +81,7 @@ class SceneDetector:
             - end_time: End time of the scene in seconds
 
         """
-        scenes = detect_scenes(temp_file_path)
+        scenes = detect_scenes(temp_file_path, chunk_relative_start_time=video_start_time)
 
         chunks = []
         for scene in scenes:
@@ -131,13 +132,14 @@ class SceneDetector:
             uri = chunk_message_value["uri"]
             video_id = chunk_message_value["video_id"]
             chunk_id = chunk_message_value["id"]
+            chunk_video_start_time = chunk_message_value["start_ts"] - chunk_message_value["overlap_left"]
 
             video_chunks_processed.add(1, {"video_id": video_id, "chunk_id": chunk_id})
 
             with tempfile.NamedTemporaryFile(prefix=f"{video_id}-", suffix=".mp4") as temp_file:
                 self.s3.download_file(uri, Path(temp_file.name))
 
-                chunks = self.process_chunk(video_id, chunk_id, temp_file.name)
+                chunks = self.process_chunk(video_id, chunk_id, temp_file.name, video_start_time=chunk_video_start_time)
 
                 for chunk in chunks:
                     self.producer.produce(self.settings.kafka.scenes_topic, json.dumps(chunk).encode("utf-8"))

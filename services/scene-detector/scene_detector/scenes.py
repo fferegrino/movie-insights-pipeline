@@ -5,12 +5,18 @@ from scenedetect.detectors import ContentDetector
 from scene_detector.entities import Scene
 
 
-def detect_scenes(video_path, threshold=30.0, min_scene_len=2):
+def detect_scenes(
+    video_path,
+    chunk_relative_start_time: float,
+    threshold=30.0,
+    min_scene_len=2,
+):
     """
     Detect scenes in a video using PySceneDetect.
 
     Args:
         video_path (str): Path to video chunk.
+        chunk_relative_start_time (float): Relative start time of the chunk in seconds.
         threshold (float): Content detector threshold (lower = more sensitive).
         min_scene_len (int): Minimum scene length in frames.
 
@@ -49,6 +55,8 @@ def detect_scenes(video_path, threshold=30.0, min_scene_len=2):
                 frame_end=end.get_frames(),
                 chunk_start_time=start_sec,
                 chunk_end_time=end_sec,
+                video_end_time=end_sec + chunk_relative_start_time,
+                video_start_time=start_sec + chunk_relative_start_time,
                 keyframe=frame,
             )
             results.append(scene)
