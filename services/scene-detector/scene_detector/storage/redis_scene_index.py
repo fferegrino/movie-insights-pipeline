@@ -2,7 +2,7 @@ import redis
 
 from scene_detector.entities import Scene
 from scene_detector.fingerprint import fingerprint_distance
-from scene_detector.storage.scene_index import SceneIndex
+from scene_detector.storage.scene_index import SceneIndex, SceneMatch
 
 
 class RedisSceneIndex(SceneIndex):
@@ -141,5 +141,9 @@ class RedisSceneIndex(SceneIndex):
         for scene_id, stored_fp in fingerprints.items():
             dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
-                return scene_id
+                return SceneMatch(
+                    scene_id=scene_id,
+                    distance=dist,
+                    scene_info={},
+                )
         return None

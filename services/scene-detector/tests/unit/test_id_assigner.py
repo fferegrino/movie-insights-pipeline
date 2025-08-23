@@ -6,7 +6,7 @@ import pytest
 from scene_detector.entities import Scene
 from scene_detector.fingerprint import compute_fingerprint, fingerprint_distance
 from scene_detector.id_assigner import IdAssigner
-from scene_detector.storage.scene_index import SceneIndex
+from scene_detector.storage.scene_index import SceneIndex, SceneMatch
 
 
 class InMemorySceneIndex(SceneIndex):
@@ -20,12 +20,16 @@ class InMemorySceneIndex(SceneIndex):
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         return self.scene_fingerprints[video_id][scene_id]
 
-    def find_match(self, scene: Scene) -> str:
+    def find_match(self, scene: Scene) -> SceneMatch | None:
         video_scenes = self.scene_fingerprints[scene.video_id]
         for scene_id, stored_fp in video_scenes.items():
             dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
-                return scene_id
+                return SceneMatch(
+                    scene_id=scene_id,
+                    distance=dist,
+                    scene_info={},
+                )
         return None
 
 

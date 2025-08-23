@@ -7,8 +7,24 @@ fingerprints with similarity matching capabilities.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any
 
 from scene_detector.entities import Scene
+
+
+@dataclass
+class SceneMatch:
+    """Represents a match between a scene and a stored scene."""
+
+    scene_id: str
+    """The ID of the matching scene."""
+
+    distance: float
+    """The distance between the scene and the matching scene."""
+
+    scene_info: dict[str, Any]
+    """Any additional information about the matching scene."""
 
 
 class SceneIndex(ABC):
@@ -50,7 +66,7 @@ class SceneIndex(ABC):
         """
 
     @abstractmethod
-    def find_match(self, scene: Scene) -> str:
+    def find_match(self, scene: Scene) -> SceneMatch | None:
         """
         Find a matching scene in the index.
 
@@ -58,6 +74,6 @@ class SceneIndex(ABC):
             scene: Scene object to search for in the index.
 
         Returns:
-            Scene ID of the first matching scene, or None if no match found
+            SceneMatch object, or None if no match found
 
         """
