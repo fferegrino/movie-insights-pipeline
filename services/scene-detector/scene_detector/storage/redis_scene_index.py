@@ -59,7 +59,7 @@ class RedisSceneIndex(SceneIndex):
         self.redis_client = redis_client
         self.threshold = threshold
 
-    def _key(self, video_id: str) -> str:
+    def _scenes_key(self, video_id: str) -> str:
         """
         Generate Redis key for storing scene fingerprints of a specific video.
 
@@ -94,7 +94,7 @@ class RedisSceneIndex(SceneIndex):
             >>> scene_index.add_scene(Scene(video_id="video_123", scene_id="scene_1", fingerprint="abc123..."))
 
         """
-        self.redis_client.hset(self._key(scene.video_id), scene.scene_id, scene.fingerprint)
+        self.redis_client.hset(self._scenes_key(scene.video_id), scene.scene_id, scene.fingerprint)
 
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         """
@@ -113,7 +113,7 @@ class RedisSceneIndex(SceneIndex):
             ...     print(f"Found fingerprint: {fingerprint}")
 
         """
-        return self.redis_client.hget(self._key(video_id), scene_id)
+        return self.redis_client.hget(self._scenes_key(video_id), scene_id)
 
     def find_match(self, scene: Scene) -> str:
         """
@@ -137,7 +137,7 @@ class RedisSceneIndex(SceneIndex):
             ...     print("No matching scene found")
 
         """
-        fingerprints = self.redis_client.hgetall(self._key(scene.video_id))
+        fingerprints = self.redis_client.hgetall(self._scenes_key(scene.video_id))
         for scene_id, stored_fp in fingerprints.items():
             dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
