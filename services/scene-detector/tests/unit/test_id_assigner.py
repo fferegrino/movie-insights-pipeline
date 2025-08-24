@@ -65,23 +65,24 @@ def create_scene(video_id: str, image_array: np.ndarray):
     )
 
 
-def test_id_assigner_assign(id_assigner, image_as_array):
+def test_id_assigner_assign_new_scene(id_assigner, image_as_array):
     scene = create_scene("video_1", image_as_array("frame_0.png"))
 
     assert scene.scene_id is None
-    id_assigner.assign(scene)
+    scene_id = id_assigner.assign(scene)
 
     assert scene.scene_id is not None
+    assert scene.scene_id == scene_id
 
 
-def test_id_assigner_assign_same_frame(id_assigner, image_as_array):
+def test_id_assigner_assign_existing_scene(id_assigner, image_as_array):
     scene_one = create_scene("video_1", image_as_array("frame_0.png"))
     scene_two = create_scene("video_1", image_as_array("frame_0.png"))
 
-    scene_one.scene_id = id_assigner.assign(scene_one)
-    scene_two.scene_id = id_assigner.assign(scene_two)
+    scene_one_id = id_assigner.assign(scene_one)
+    scene_two_id = id_assigner.assign(scene_two)
 
-    assert scene_one.scene_id == scene_two.scene_id
+    assert scene_one_id == scene_two_id
 
 
 @pytest.mark.parametrize(
@@ -95,9 +96,12 @@ def test_id_assigner_assign_similar_frame(id_assigner, image_as_array, distinct_
     scene_one = create_scene("video_1", image_as_array("frame_560.png"))
     scene_two = create_scene("video_1", image_as_array(distinct_image))
 
-    scene_one.scene_id = id_assigner.assign(scene_one)
-    scene_two.scene_id = id_assigner.assign(scene_two)
+    scene_one_id = id_assigner.assign(scene_one)
+    scene_two_id = id_assigner.assign(scene_two)
 
+    assert scene_one_id == scene_two_id
+    assert scene_one.scene_id is not None
+    assert scene_two.scene_id is not None
     assert scene_one.scene_id == scene_two.scene_id
 
 
@@ -105,6 +109,10 @@ def test_id_assigner_assign_different(id_assigner, image_as_array):
     scene_one = create_scene("video_1", image_as_array("frame_0.png"))
     scene_two = create_scene("video_1", image_as_array("frame_10.png"))
 
-    scene_one.scene_id = id_assigner.assign(scene_one)
-    scene_two.scene_id = id_assigner.assign(scene_two)
+    scene_one_id = id_assigner.assign(scene_one)
+    scene_two_id = id_assigner.assign(scene_two)
+
+    assert scene_one_id != scene_two_id
+    assert scene_one.scene_id is not None
+    assert scene_two.scene_id is not None
     assert scene_one.scene_id != scene_two.scene_id
