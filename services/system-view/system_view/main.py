@@ -24,6 +24,12 @@ websocket_manager = WebSocketManager(kafka_connections)
 async def lifespan(app: FastAPI):
     websocket_manager.start()
     await kafka_connections.connect()
+
+    # Set up message callback to broadcast new messages via WebSocket
+    async def message_callback(topic: str, message_data: dict):
+        await websocket_manager.broadcast_new_message(topic, message_data)
+
+    kafka_connections.set_message_callback(message_callback)
     yield
     await kafka_connections.disconnect()
     websocket_manager.stop()

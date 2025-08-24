@@ -73,6 +73,14 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error sending status update: {e}")
 
+    async def broadcast_new_message(self, topic: str, message_data: dict) -> None:
+        """Broadcast a new message to all connected clients."""
+        try:
+            message = WebSocketMessage(type="new_message", data={"topic": topic, "message": message_data})
+            await self.broadcast(message)
+        except Exception as e:
+            logger.error(f"Error broadcasting new message: {e}")
+
     async def broadcast_status_update(self) -> None:
         """Broadcast system status to all connected clients."""
         try:
