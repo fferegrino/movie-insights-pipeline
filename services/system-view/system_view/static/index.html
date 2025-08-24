@@ -29,6 +29,20 @@
             <div class="message-timestamp">{{start_ts}} - {{end_ts}}</div>
         </div>
       </script>
+      <script id="scene-template" type="x-tmpl-mustache">
+        <div class="scene">
+            <div class="scene-id">{{id}}</div>
+            <div class="scene-timestamp">{{start_ts}} - {{end_ts}}</div>
+        </div>
+        <div class="individual-scenes">
+            {{#individual_scenes}}
+                <div class="individual-scene">
+                    <div class="individual-scene-id">{{chunk_id}}</div>
+                    <div class="individual-scene-timestamp">{{start_time}} - {{end_time}}</div>
+                </div>
+            {{/individual_scenes}}
+        </div>
+      </script>
     <script src="/static/app.js"></script>
 </body>
 
