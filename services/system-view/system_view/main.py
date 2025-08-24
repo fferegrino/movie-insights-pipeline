@@ -2,7 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -70,6 +70,17 @@ async def health():
 @app.get("/version")
 async def version():
     return {"version": __version__}
+
+
+@app.get("/api/topics/{topic_name}/messages")
+async def get_topic_messages(topic_name: str, limit: int = 50):
+    """Get messages for a specific topic."""
+    try:
+        messages = await kafka_connections.get_messages(topic_name, limit=limit)
+        return {"messages": [msg.dict() for msg in messages]}
+    except Exception as e:
+        logger.error(f"Error getting messages for topic {topic_name}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get messages")
 
 
 @app.websocket("/ws")

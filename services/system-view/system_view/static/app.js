@@ -2,6 +2,31 @@ class SystemViewApp {
     constructor() {
         this.ws = null;
         this.connect();
+        this.initElements();
+        this.loadInitialView();
+    }
+
+    initElements() {
+        this.messageTracks = {
+            chunks: document.getElementById('message-track-chunks'),
+            scenes: document.getElementById('message-track-scenes'),
+        };
+    }
+
+    loadInitialView() {
+        fetch(`/api/topics/video-chunks/messages`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("chunks", data.messages);
+                this.messageTracks.chunks.innerHTML = data.messages.map(message => `<div class="message">${message.value.id}</div>`).join('');
+            });
+
+        fetch(`/api/topics/scenes/messages`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("scenes", data.messages);
+                this.messageTracks.scenes.innerHTML = data.messages.map(message => `<div class="message">${message.value.scene_id}</div>`).join('');
+            });
     }
 
     connect() {
@@ -18,7 +43,7 @@ class SystemViewApp {
             };
 
             this.ws.onmessage = (event) => {
-                console.log('WebSocket message received:', event.data);
+                // console.log('WebSocket message received:', event.data);
             };
 
             this.ws.onclose = () => {
