@@ -4,6 +4,7 @@ from testcontainers.redis import RedisContainer
 from scene_detector.entities import Scene
 from scene_detector.fingerprint import compute_fingerprint
 from scene_detector.storage.redis_scene_index import RedisSceneIndex
+from scene_detector.storage.scene_index import SceneMatch
 
 
 @pytest.fixture
@@ -41,7 +42,9 @@ def test_redis_scene_index_add_one(redis_client, image_fingerprint):
     redis_scene_index.add_scene(create_scene("video_1", "scene_1", image_fingerprint("frame_0.png")))
 
     current_fingerprints = redis_client.hgetall("video:video_1:scenes")
+    current_scene_info = redis_client.hgetall("video:video_1:scene_info:scene_1")
     assert current_fingerprints == {"scene_1": image_fingerprint("frame_0.png")}
+    assert current_scene_info == {"video_start_time": "0", "video_end_time": "10"}
 
 
 def test_redis_scene_index_find_match(redis_client, image_fingerprint):
@@ -52,4 +55,12 @@ def test_redis_scene_index_find_match(redis_client, image_fingerprint):
     current_fingerprints = redis_client.hgetall("video:video_1:scenes")
     assert current_fingerprints == {"scene_1": image_fingerprint("frame_0.png")}
 
-    assert redis_scene_index.find_match(create_scene("video_1", None, image_fingerprint("frame_0.png"))) == "scene_1"
+    actual_scene_match = redis_scene_index.find_match(create_scene("video_1", None, image_fingerprint("frame_0.png")))
+
+    assert actual_scene_match == SceneMatch(
+        scene_id="scene_1",
+        video_id="video_1",
+        distance=0,
+        video_start_time=0,
+        video_end_time=10,
+    )

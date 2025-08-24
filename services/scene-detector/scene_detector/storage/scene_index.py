@@ -8,7 +8,6 @@ fingerprints with similarity matching capabilities.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
 from scene_detector.entities import Scene
 
@@ -20,11 +19,17 @@ class SceneMatch:
     scene_id: str
     """The ID of the matching scene."""
 
+    video_id: str
+    """The ID of the video containing the matching scene."""
+
     distance: float
     """The distance between the scene and the matching scene."""
 
-    scene_info: dict[str, Any]
-    """Any additional information about the matching scene."""
+    video_start_time: float
+    """Scene start time in seconds relative to the video."""
+
+    video_end_time: float
+    """Scene end time in seconds relative to the video."""
 
 
 class SceneIndex(ABC):

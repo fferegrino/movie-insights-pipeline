@@ -77,6 +77,25 @@ class RedisSceneIndex(SceneIndex):
         """
         return f"video:{video_id}:scenes"
 
+    def _scene_info_key(self, video_id: str, scene_id: str) -> str:
+        """
+        Generate Redis key for storing scene info of a specific scene.
+
+        Args:
+            video_id (str): Unique identifier for the video
+            scene_id (str): Unique identifier for the scene within the video
+
+        Returns:
+            str: Redis key in format "video:{video_id}:scene_info:{scene_id}"
+
+        Example:
+            >>> index = RedisSceneIndex(redis_client)
+            >>> index._scene_info_key("movie_123", "scene_1")
+            'video:movie_123:scene_info:scene_1'
+
+        """
+        return f"video:{video_id}:scene_info:{scene_id}"
+
     def add_scene(self, scene: Scene):
         """
         Add a scene fingerprint to the Redis index.
@@ -95,6 +114,7 @@ class RedisSceneIndex(SceneIndex):
 
         """
         self.redis_client.hset(self._scenes_key(scene.video_id), scene.scene_id, scene.fingerprint)
+        self._insert_scene_info(scene)
 
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         """
@@ -141,9 +161,22 @@ class RedisSceneIndex(SceneIndex):
         for scene_id, stored_fp in fingerprints.items():
             dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
+                scene_info = self.redis_client.hgetall(self._scene_info_key(scene.video_id, scene_id))
                 return SceneMatch(
                     scene_id=scene_id,
+                    video_id=scene.video_id,
                     distance=dist,
-                    scene_info={},
+                    video_start_time=float(scene_info["video_start_time"]),
+                    video_end_time=float(scene_info["video_end_time"]),
                 )
         return None
+
+    def _insert_scene_info(self, scene: Scene):
+        """Insert scene info into the Redis index."""
+        self.redis_client.hset(
+            self._scene_info_key(scene.video_id, scene.scene_id),
+            mapping={
+                "video_start_time": scene.video_start_time,
+                "video_end_time": scene.video_end_time,
+            },
+        )

@@ -12,10 +12,15 @@ from scene_detector.storage.scene_index import SceneIndex, SceneMatch
 class InMemorySceneIndex(SceneIndex):
     def __init__(self, threshold: int = 400):
         self.scene_fingerprints = defaultdict(dict)  # video_id -> scene_id -> fingerprint
+        self.scene_info = defaultdict(dict)  # video_id -> scene_id -> scene_info
         self.threshold = threshold
 
     def add_scene(self, scene: Scene):
         self.scene_fingerprints[scene.video_id][scene.scene_id] = scene.fingerprint
+        self.scene_info[scene.video_id][scene.scene_id] = {
+            "video_start_time": scene.video_start_time,
+            "video_end_time": scene.video_end_time,
+        }
 
     def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
         return self.scene_fingerprints[video_id][scene_id]
@@ -28,7 +33,8 @@ class InMemorySceneIndex(SceneIndex):
                 return SceneMatch(
                     scene_id=scene_id,
                     distance=dist,
-                    scene_info={},
+                    video_start_time=self.scene_info[scene.video_id][scene_id]["video_start_time"],
+                    video_end_time=self.scene_info[scene.video_id][scene_id]["video_end_time"],
                 )
         return None
 
