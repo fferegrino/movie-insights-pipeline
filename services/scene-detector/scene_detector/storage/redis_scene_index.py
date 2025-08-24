@@ -36,7 +36,7 @@ class RedisSceneIndex(SceneIndex):
 
     """
 
-    def __init__(self, redis_client: redis.Redis, threshold: int = 10):
+    def __init__(self, redis_client: redis.Redis, threshold: int = 10, overlap_threshold: float = 0.1):
         """
         Initialize the RedisSceneIndex.
 
@@ -45,6 +45,8 @@ class RedisSceneIndex(SceneIndex):
             threshold (int, optional): Maximum fingerprint distance for considering a match.
                                      Lower values are more strict, higher values allow more
                                      variation. Defaults to 10.
+            overlap_threshold (float, optional): Maximum overlap between scenes in seconds.
+                                                Defaults to 0.1.
 
         Raises:
             TypeError: If redis_client is not a valid Redis client instance
@@ -58,6 +60,7 @@ class RedisSceneIndex(SceneIndex):
 
         self.redis_client = redis_client
         self.threshold = threshold
+        self.overlap_threshold = overlap_threshold
 
     def _scenes_key(self, video_id: str) -> str:
         """
@@ -135,6 +138,15 @@ class RedisSceneIndex(SceneIndex):
         """
         return self.redis_client.hget(self._scenes_key(video_id), scene_id)
 
+    def _overlap(self, scene_one: Scene, start_time: float, end_time: float) -> bool:
+        """Check if a scene overlaps with another scene."""
+        _start_time = start_time - self.overlap_threshold
+        _end_time = end_time + self.overlap_threshold
+        return (
+            _start_time <= scene_one.video_start_time <= _end_time
+            or _start_time <= scene_one.video_end_time <= _end_time
+        )
+
     def find_match(self, scene: Scene) -> str:
         """
         Find a matching scene fingerprint within the specified threshold.
@@ -162,13 +174,14 @@ class RedisSceneIndex(SceneIndex):
             dist = fingerprint_distance(scene.fingerprint, stored_fp)
             if dist <= self.threshold:
                 scene_info = self.redis_client.hgetall(self._scene_info_key(scene.video_id, scene_id))
-                return SceneMatch(
-                    scene_id=scene_id,
-                    video_id=scene.video_id,
-                    distance=dist,
-                    video_start_time=float(scene_info["video_start_time"]),
-                    video_end_time=float(scene_info["video_end_time"]),
-                )
+                if self._overlap(scene, float(scene_info["video_start_time"]), float(scene_info["video_end_time"])):
+                    return SceneMatch(
+                        scene_id=scene_id,
+                        video_id=scene.video_id,
+                        distance=dist,
+                        video_start_time=float(scene_info["video_start_time"]),
+                        video_end_time=float(scene_info["video_end_time"]),
+                    )
         return None
 
     def _insert_scene_info(self, scene: Scene):

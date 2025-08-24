@@ -149,6 +149,9 @@ class IdAssigner:
 
         if scene_match:
             scene.scene_id = scene_match.scene_id
+            scene.video_start_time = min(scene.video_start_time, scene_match.video_start_time)
+            scene.video_end_time = max(scene.video_end_time, scene_match.video_end_time)
+            self.index.update_scene(scene)
         else:
             new_id = str(uuid.uuid4())
             scene.scene_id = new_id
