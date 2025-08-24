@@ -8,15 +8,24 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from system_view import __version__
-from system_view.websocket_manager import websocket_manager
+from system_view.kafka_connections import KafkaConnections
+from system_view.settings import SystemViewSettings
+from system_view.websocket_manager import WebSocketManager
 
 logger = logging.getLogger(__name__)
+
+settings = SystemViewSettings()
+
+kafka_connections = KafkaConnections(settings)
+websocket_manager = WebSocketManager(kafka_connections)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     websocket_manager.start()
+    await kafka_connections.connect()
     yield
+    await kafka_connections.disconnect()
     websocket_manager.stop()
 
 
@@ -66,6 +75,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # Keep the connection alive
             await websocket.receive_text()
     except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
         websocket_manager.disconnect(websocket)
     except Exception as e:
         logger.error(f"WebSocket error: {e}")

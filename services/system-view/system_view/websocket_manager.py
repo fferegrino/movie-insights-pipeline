@@ -5,6 +5,7 @@ import logging
 
 from fastapi import WebSocket
 
+from system_view.kafka_connections import KafkaConnections
 from system_view.models import WebSocketMessage
 
 logger = logging.getLogger(__name__)
@@ -13,9 +14,11 @@ logger = logging.getLogger(__name__)
 class WebSocketManager:
     """Manages WebSocket connections and broadcasts messages to clients."""
 
-    def __init__(self):
+    def __init__(self, kafka_connections: KafkaConnections):
+        """Initialize the WebSocket manager."""
         self.active_connections: set[WebSocket] = set()
         self._broadcast_task: asyncio.Task = None
+        self.kafka_connections = kafka_connections
 
     async def connect(self, websocket: WebSocket) -> None:
         """Accept a new WebSocket connection."""
@@ -59,10 +62,11 @@ class WebSocketManager:
     async def send_status_update(self, websocket: WebSocket) -> None:
         """Send current system status to a specific client."""
         try:
+            status = await self.kafka_connections.get_system_status()
             message = WebSocketMessage(
                 type="status",
                 data={
-                    "system": "ok",
+                    "kafka": status,
                 },
             )
             await self.send_personal_message(message, websocket)
@@ -72,10 +76,11 @@ class WebSocketManager:
     async def broadcast_status_update(self) -> None:
         """Broadcast system status to all connected clients."""
         try:
+            status = await self.kafka_connections.get_system_status()
             message = WebSocketMessage(
                 type="status",
                 data={
-                    "system": "ok",
+                    "kafka": status,
                 },
             )
             await self.broadcast(message)
@@ -112,7 +117,3 @@ class WebSocketManager:
         if self._broadcast_task and not self._broadcast_task.done():
             self._broadcast_task.cancel()
             logger.info("WebSocket manager stopped")
-
-
-# Global WebSocket manager instance
-websocket_manager = WebSocketManager()
