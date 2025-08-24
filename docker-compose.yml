@@ -155,6 +155,29 @@ services:
       REDIS__PORT: 6379
       PYTHONUNBUFFERED: 1
 
+  system-view:
+    build:
+      context: ./services/system-view
+      dockerfile: Dockerfile
+    container_name: system-view
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      HOST: 0.0.0.0
+      PORT: 8000
+      MAX_MESSAGES_PER_TOPIC: 100
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
