@@ -17,16 +17,23 @@ class SystemViewApp {
         fetch(`/api/topics/video-chunks/messages`)
             .then(response => response.json())
             .then(data => {
-                console.log("chunks", data.messages);
-                this.messageTracks.chunks.innerHTML = data.messages.map(message => `<div class="message">${message.value.id}</div>`).join('');
+                for (const message of data.messages) {
+                    this.appendChunkMessage(message.value);
+                }
             });
 
         fetch(`/api/topics/scenes/messages`)
             .then(response => response.json())
             .then(data => {
-                console.log("scenes", data.messages);
-                this.messageTracks.scenes.innerHTML = data.messages.map(message => `<div class="message">${message.value.scene_id}</div>`).join('');
+                // console.log("scenes", data.messages);
+                // this.messageTracks.scenes.innerHTML = data.messages.map(message => `<div class="message">${message.value.scene_id}</div>`).join('');
             });
+    }
+
+    appendChunkMessage(chunkMessage) {
+        const template = document.getElementById('chunk-template').innerHTML;
+        const rendered = Mustache.render(template, chunkMessage);
+        this.messageTracks.chunks.innerHTML += rendered;
     }
 
     connect() {
