@@ -97,6 +97,8 @@ class SceneDetector:
                 "scene_id": scene.scene_id,
                 "frame_start": scene.frame_start,
                 "frame_end": scene.frame_end,
+                "video_start_time": scene.video_start_time,
+                "video_end_time": scene.video_end_time,
                 "start_time": scene.chunk_start_time,
                 "end_time": scene.chunk_end_time,
             }
