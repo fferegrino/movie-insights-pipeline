@@ -180,3 +180,24 @@ class RedisSceneIndex(SceneIndex):
                 "video_end_time": scene.video_end_time,
             },
         )
+
+    def update_scene(self, scene: Scene):
+        """
+        Update the info of a scene in the Redis index.
+
+        Args:
+            scene: Scene object to update in the index.
+
+        Example:
+            >>> scene_index.update_scene(
+            ...     Scene(video_id="video_123", scene_id="scene_1", video_start_time=10, video_end_time=20)
+            ... )
+
+        """
+        self.redis_client.hset(
+            self._scene_info_key(scene.video_id, scene.scene_id),
+            mapping={
+                "video_start_time": scene.video_start_time,
+                "video_end_time": scene.video_end_time,
+            },
+        )

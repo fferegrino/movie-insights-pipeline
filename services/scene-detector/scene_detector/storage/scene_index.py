@@ -82,3 +82,13 @@ class SceneIndex(ABC):
             SceneMatch object, or None if no match found
 
         """
+
+    @abstractmethod
+    def update_scene(self, scene: Scene):
+        """
+        Update the info of a scene in the index.
+
+        Args:
+            scene: Scene object to update in the index.
+
+        """

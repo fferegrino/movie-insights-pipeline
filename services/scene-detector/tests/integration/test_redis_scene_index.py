@@ -21,15 +21,15 @@ def image_fingerprint(image_as_array):
     return _image_fingerprint
 
 
-def create_scene(video_id, scene_id, fingerprint):
+def create_scene(video_id, scene_id, fingerprint, video_start_time=0, video_end_time=10):
     return Scene(
         video_id=video_id,
         frame_start=0,
         frame_end=10,
         chunk_start_time=0,
         chunk_end_time=10,
-        video_start_time=0,
-        video_end_time=10,
+        video_start_time=video_start_time,
+        video_end_time=video_end_time,
         scene_id=scene_id,
         keyframe=None,
         fingerprint=fingerprint,
@@ -64,3 +64,16 @@ def test_redis_scene_index_find_match(redis_client, image_fingerprint):
         video_start_time=0,
         video_end_time=10,
     )
+
+
+def test_redis_scene_index_update_scene(redis_client, image_fingerprint):
+    redis_scene_index = RedisSceneIndex(redis_client)
+
+    redis_scene_index.add_scene(create_scene("video_1", "scene_1", image_fingerprint("frame_0.png")))
+
+    redis_scene_index.update_scene(
+        create_scene("video_1", "scene_1", image_fingerprint("frame_0.png"), video_start_time=10, video_end_time=20)
+    )
+
+    current_scene_info = redis_client.hgetall("video:video_1:scene_info:scene_1")
+    assert current_scene_info == {"video_start_time": "10", "video_end_time": "20"}

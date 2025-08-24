@@ -33,10 +33,17 @@ class InMemorySceneIndex(SceneIndex):
                 return SceneMatch(
                     scene_id=scene_id,
                     distance=dist,
+                    video_id=scene.video_id,
                     video_start_time=self.scene_info[scene.video_id][scene_id]["video_start_time"],
                     video_end_time=self.scene_info[scene.video_id][scene_id]["video_end_time"],
                 )
         return None
+
+    def update_scene(self, scene: Scene):
+        self.scene_info[scene.video_id][scene.scene_id] = {
+            "video_start_time": scene.video_start_time,
+            "video_end_time": scene.video_end_time,
+        }
 
 
 @pytest.fixture
