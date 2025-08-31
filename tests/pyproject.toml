@@ -1,0 +1,13 @@
+[project]
+name = "movie-insights-pipeline-tests"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "confluent-kafka>=2.11.1",
+    "pytest>=8.4.1",
+    "pytest-docker>=3.2.3",
+    "requests>=2.32.5",
+    "ruff>=0.12.11",
+]

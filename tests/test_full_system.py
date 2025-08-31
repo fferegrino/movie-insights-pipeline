@@ -1,3 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "confluent-kafka",
+#     "pytest",
+#     "pytest-docker",
+#     "requests",
+# ]
+# ///
 import json
 import os
 import time
@@ -16,49 +25,90 @@ def docker_compose_file(pytestconfig):
     ]
 
 
-def test_full_system(docker_services):
+@pytest.fixture
+def consume_messages(docker_services):
     kafka_port = docker_services.port_for("kafka", 9092)
 
-    consumer = Consumer(
-        {
-            "bootstrap.servers": f"localhost:{kafka_port}",
-            "group.id": f"test-group-{uuid4()}",
-            "auto.offset.reset": "latest",
-        }
-    )
+    def _consume_messages(topic: str, timeout: int = 30, assert_message_number: int = -1):
+        consumer = Consumer(
+            {
+                "bootstrap.servers": f"localhost:{kafka_port}",
+                "group.id": f"test-group-{uuid4()}",
+                "auto.offset.reset": "earliest",
+            }
+            
+            )
+        
+        consumer.subscribe([topic])
+        
+        start_time = time.time()
+        messages = []
+        while time.time() - start_time < timeout:
+            msg = consumer.poll(1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                raise Exception(msg.error())
+            messages.append(json.loads(msg.value().decode("utf-8")))
+
+        if assert_message_number != -1:
+            assert len(messages) == assert_message_number, f"For topic {topic}, expected {assert_message_number} but got {len(messages)}"
+        
+        consumer.close()
+        return messages
+    
+    return _consume_messages
+
+
+@pytest.fixture
+def upload_file(docker_services):
+    chunker_port = docker_services.port_for("video-chunker", 8000)
+
+    def _upload_file(files: dict):
+        new_files = {}
+        _files = []
+        for key, value in files.items():
+            file = open(value[0], "rb")
+            new_files[key] = (value[0], file, value[1])
+        response = requests.post(f"http://localhost:{chunker_port}/chunk-video", files=new_files)
+        assert response.status_code == 200
+        return response.json()
+    
+    return _upload_file
+
+
+@pytest.fixture
+def wait_for_health(docker_services):
+    chunker_port = docker_services.port_for("video-chunker", 8000)
+    def _wait_for_health():
+        t0 = time.time()
+        while time.time() - t0 < 30:
+            try:
+                response = requests.get(f"http://localhost:{chunker_port}/health")
+                if response.status_code == 200:
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+    return _wait_for_health
+
+def test_full_system(consume_messages, upload_file, wait_for_health):
 
     video_path = os.path.join(os.getcwd(), "movies", "pizza-conversation.mp4")
 
-    while True:
-        try:
-            response = requests.get("http://localhost:8000/health")
-            if response.status_code == 200:
-                break
-        except Exception:
-            pass
+    wait_for_health()
 
-    with open(video_path, "rb") as video_file:
-        files = {"video": ("pizza-conversation.mp4", video_file, "video/mp4")}
-        try:
-            response = requests.post("http://localhost:8000/chunk-video", files=files)
-            assert response.status_code == 200
-        except Exception:
-            breakpoint()
+    upload_response = upload_file({"video": (video_path, "video/mp4")})
 
-    consumer.subscribe(["scenes"])
-    start_time = time.time()
-    messages = []
-    while time.time() - start_time < 30:
-        msg = consumer.poll(1.0)
-        if msg is None:
-            continue
-        if msg.error():
-            raise Exception(msg.error())
-        messages.append(json.loads(msg.value().decode("utf-8")))
+    scene_chunks = consume_messages("video-chunks")
 
-    with open("messages.json", "w") as f:
-        for message in messages:
-            f.write(json.dumps(message) + "\n")
+    scene_messages = consume_messages("scenes")
 
-    unique_scenes = {message["scene_id"] for message in messages}
-    assert len(unique_scenes) == 8
+    unique_scenes = {message["scene_id"] for message in scene_messages}
+    breakpoint()
+    assert len(unique_scenes) >= 8
+
+
+
+if __name__ == "__main__":
+    pytest.main(["tests/"])

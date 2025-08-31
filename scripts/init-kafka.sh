@@ -20,7 +20,7 @@ for topic in "${topics[@]}"; do
   kafka-topics --bootstrap-server kafka:29092 \
     --create \
     --topic $topic \
-    --partitions 3 \
+    --partitions 1 \
     --replication-factor 1 \
     --if-not-exists
 
