@@ -7,6 +7,7 @@ import pytest
 from testcontainers.core.network import Network
 from testcontainers.kafka import KafkaContainer
 from testcontainers.minio import MinioContainer
+from testcontainers.redis import RedisContainer
 
 
 @pytest.fixture
@@ -73,3 +74,12 @@ def kafka(test_network):
     kafka.with_network(test_network)
     with kafka:
         yield kafka
+
+
+@pytest.fixture
+def redis(test_network):
+    redis = RedisContainer()
+    redis.with_name("redis")
+    redis.with_network(test_network)
+    with redis:
+        yield redis

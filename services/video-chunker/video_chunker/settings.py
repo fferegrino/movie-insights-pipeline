@@ -1,6 +1,12 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class RedisSettings(BaseSettings):
+    host: str
+    port: int
+    namespace: str
+
+
 class StorageSettings(BaseSettings):
     raw_video_bucket: str
     chunked_video_bucket: str
@@ -20,3 +26,4 @@ class ChunkerSettings(BaseSettings):
 
     storage: StorageSettings
     kafka: KafkaSettings
+    redis: RedisSettings

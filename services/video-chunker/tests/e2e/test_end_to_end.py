@@ -1,6 +1,5 @@
 import json
 import time
-from unittest.mock import ANY
 from urllib.parse import urlparse
 
 import pytest
@@ -56,6 +55,14 @@ def video_chunker_container(test_network):
     return container
 
 
+@pytest.fixture
+def pattern_handlers():
+    return {
+        "uuid4": r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "video_name": r"[a-zA-Z0-9_-]+\.mp4",
+    }
+
+
 def read_messages(consumer, topic, count, timeout=10):
     consumer.subscribe([topic])
     messages = []
@@ -73,6 +80,7 @@ def read_messages(consumer, topic, count, timeout=10):
 
 def test_end_to_end(
     s3,
+    redis,
     chunked_video_bucket,
     video_chunker_container,
     fixture_path,
@@ -80,8 +88,10 @@ def test_end_to_end(
     raw_chunks_topic,
     get_json_fixture,
     kafka,
+    dict_match,
 ):
     storage_client = s3.get_client()
+    redis_client = redis.get_client(decode_responses=True)
     video_chunker_container.with_env("STORAGE__ENDPOINT_URL", "http://s3:9000")
     video_chunker_container.with_env("STORAGE__ACCESS_KEY_ID", "minioadmin")
     video_chunker_container.with_env("STORAGE__SECRET_ACCESS_KEY", "minioadmin")
@@ -90,6 +100,9 @@ def test_end_to_end(
     video_chunker_container.with_env("KAFKA__CHUNKS_TOPIC", raw_chunks_topic)
     video_chunker_container.with_env("KAFKA__BOOTSTRAP_SERVERS", "kafka:9092")
     video_chunker_container.with_env("KAFKA__SECURITY_PROTOCOL", "PLAINTEXT")
+    video_chunker_container.with_env("REDIS__HOST", "redis")
+    video_chunker_container.with_env("REDIS__PORT", "6379")
+    video_chunker_container.with_env("REDIS__NAMESPACE", "video-metadata")
     video_chunker_container.start()
 
     time.sleep(1)
@@ -112,26 +125,18 @@ def test_end_to_end(
 
     [stdout, stderr] = video_chunker_container.get_logs()
 
-    video_id = result["video_id"]
-    expected_response["video_id"] = video_id
-
-    raw_video_uri = result.pop("uri")
+    raw_video_uri = result["uri"]
     s3_key = urlparse(raw_video_uri).path.lstrip("/")
     s3_object = storage_client.stat_object(bucket_name=raw_video_bucket, object_name=s3_key)
-    result["uri"] = ANY
     assert s3_object
 
     for chunk in result["chunks"]:
-        chunk_uri = chunk.pop("uri")
+        chunk_uri = chunk["uri"]
         s3_key = urlparse(chunk_uri).path.lstrip("/")
         s3_object = storage_client.stat_object(bucket_name=chunked_video_bucket, object_name=s3_key)
-        chunk["uri"] = ANY
-        chunk["id"] = ANY
-        assert chunk["video_id"] == video_id
-        chunk["video_id"] = ANY
         assert s3_object
 
-    assert result == expected_response
+    extracted_values = dict_match(expected_response, result)
 
     consumer = Consumer(
         {
@@ -141,6 +146,20 @@ def test_end_to_end(
             "auto.offset.reset": "earliest",
         }
     )
+
+    video_id = extracted_values["uuid4"]["video_id"]
+    video_name = extracted_values["video_name"]["original_video_name"]
+    stored_in_redis = redis_client.hgetall(f"video-metadata:{video_id}")
+
+    expected_stored = {
+        "duration": "10.0",
+        "video_id": video_id,
+        "original_name": "smallest.mp4",
+        "fps": "25.0",
+        "uri": f"s3://raw-videos/{video_id}/{video_name}",
+    }
+
+    assert stored_in_redis == expected_stored
 
     messages = read_messages(consumer, raw_chunks_topic, 2)
 

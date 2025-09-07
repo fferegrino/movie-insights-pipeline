@@ -7,7 +7,7 @@
       "fps": 25.0,
       "frame_end": 125,
       "frame_start": 0,
-      "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000001_000002.mp4",
+      "id": "{uuid4:video_id}/{video_name:chunk_1}",
       "overlap_left": 0.0,
       "overlap_right": 1,
       "settings": {
@@ -15,8 +15,8 @@
         "codec": "libx264"
       },
       "start_ts": 0,
-      "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000001_000002.mp4",
-      "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+      "uri": "s3://chunked-videos/{uuid4:video_id}/{video_name:chunk_1}",
+      "video_id": "{uuid4:video_id}"
     },
     {
       "chunk_count": 2,
@@ -25,7 +25,7 @@
       "fps": 25.0,
       "frame_end": 250,
       "frame_start": 125,
-      "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
+      "id": "{uuid4:video_id}/{video_name:chunk_2}",
       "overlap_left": 1,
       "overlap_right": 0.0,
       "settings": {
@@ -33,13 +33,13 @@
         "codec": "libx264"
       },
       "start_ts": 5,
-      "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-      "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+      "uri": "s3://chunked-videos/{uuid4:video_id}/{video_name:chunk_2}",
+      "video_id": "{uuid4:video_id}"
     }
   ],
   "duration": 10.0,
   "fps": 25.0,
   "original_name": "smallest.mp4",
-  "uri": "s3://raw-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/tmp8xp2d3ll.mp4",
-  "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87"
+  "uri": "s3://raw-videos/{uuid4:video_id}/{video_name:original_video_name}",
+  "video_id": "{uuid4:video_id}"
 }

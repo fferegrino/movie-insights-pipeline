@@ -122,6 +122,9 @@ services:
       KAFKA__BOOTSTRAP_SERVERS: kafka:29092
       KAFKA__SECURITY_PROTOCOL: PLAINTEXT
       KAFKA__CHUNKS_TOPIC: video-chunks
+      REDIS__HOST: redis
+      REDIS__PORT: 6379
+      REDIS__NAMESPACE: video-metadata
       PYTHONUNBUFFERED: 1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

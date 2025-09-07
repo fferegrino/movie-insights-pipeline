@@ -5,10 +5,11 @@ from uuid import uuid4
 
 from confluent_kafka import Producer
 from moviepy import VideoFileClip
+from redis import Redis
 
 from video_chunker.chunking import chunk_video
 from video_chunker.s3 import S3Client
-from video_chunker.settings import ChunkerSettings, KafkaSettings, StorageSettings
+from video_chunker.settings import ChunkerSettings, KafkaSettings, RedisSettings, StorageSettings
 
 # Configuration constants
 CHUNK_DURATION = 5
@@ -20,6 +21,11 @@ def get_producer(kafka_settings: KafkaSettings) -> Producer:
     return Producer(
         {"bootstrap.servers": kafka_settings.bootstrap_servers, "security.protocol": kafka_settings.security_protocol}
     )
+
+
+def get_redis_client(redis_settings: RedisSettings) -> Redis:
+    """Create and configure a Redis client instance."""
+    return Redis(host=redis_settings.host, port=redis_settings.port)
 
 
 def get_s3_client(storage_settings: StorageSettings) -> S3Client:
@@ -149,6 +155,7 @@ def process_video(video_path: Path, original_filename: Path) -> dict[str, Any]:
     chunker_settings = ChunkerSettings()
     s3_client = get_s3_client(chunker_settings.storage)
     producer = get_producer(chunker_settings.kafka)
+    redis_client = get_redis_client(chunker_settings.redis)
 
     # Generate unique video ID
     video_id = str(uuid4())
@@ -185,6 +192,9 @@ def process_video(video_path: Path, original_filename: Path) -> dict[str, Any]:
         # Produce chunks to Kafka
         for chunk in chunks:
             producer.produce(chunker_settings.kafka.chunks_topic, json.dumps(chunk).encode("utf-8"))
+
+        redis_client.hset(f"{chunker_settings.redis.namespace}:{video_id}", mapping=raw_video_metadata)
+        # TODO: We need to set the TTL for the video metadata, this is not done yet
 
         # Add chunks to final metadata
         raw_video_metadata["chunks"] = chunks
