@@ -40,6 +40,15 @@ def replace_placeholders(json_data: dict, *, replacements: dict[str, str], repla
 
 
 @pytest.fixture
+def jsonl_fixture(fixture_path):
+    def _jsonl_fixture(filename):
+        with open(fixture_path(filename)) as f:
+            return [json.loads(line) for line in f]
+
+    return _jsonl_fixture
+
+
+@pytest.fixture
 def get_json_fixture(fixture_path):
     def _get_json_fixture(filename, *, replacements: dict[str, str] = None, replace_any: bool = True):
         with open(fixture_path(filename)) as f:
