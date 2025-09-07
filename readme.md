@@ -1,22 +1,10 @@
 # Movie insights pipeline
 
-## What is included
+## Test
 
-### Docker Compose Setup (`docker-compose.yml`)
-
-- **MinIO Server**: A local S3-compatible storage server that runs on your machine
-
-  - **Bucket Initialization**: Automatically creates storage bucket when you start the services
-
-  - **Web Interface**: A browser-based console to manage files and buckets
-
-- **Kafka**: A message broker that allows you to send and receive messages between different services
-
-  - **Topic Initialization**: Automatically creates Kafka topics when you start the services
-
-  - **Kafka UI**: A web interface to manage Kafka topics and messages
-
-- **Video Chunker**: A service that chunks videos into smaller chunks
+```bash
+uv run --directory tests test_full_system.py
+```
 
 ## Quick Start
 
