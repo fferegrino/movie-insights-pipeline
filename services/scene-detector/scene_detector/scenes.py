@@ -63,6 +63,16 @@ def detect_scenes(
     results = []
     cap = cv2.VideoCapture(video_path)
 
+    if len(scene_list) == 0:
+        scene_list = [
+            DetectedSceneInfo(
+                start_sec=0,
+                end_sec=cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS),
+                start_frame=0,
+                end_frame=cap.get(cv2.CAP_PROP_FRAME_COUNT) - 1,
+            )
+        ]
+
     for scene_info in scene_list:
         # Convert to seconds
         start_sec = scene_info.start_sec
