@@ -106,12 +106,8 @@ def wait_for_health(docker_services):
 
 
 @pytest.fixture
-def load_messages_from_jsonl(root_dir):
-    def _load_messages_from_jsonl(filename):
-        with open(root_dir / "tests" / "fixtures" / filename, "r") as f:
-            return [json.loads(line) for line in f]
-
-    return _load_messages_from_jsonl
+def fixtures_path(pytestconfig):
+    return Path(pytestconfig.rootdir) / "fixtures"
 
 
 def test_full_system(
@@ -120,7 +116,7 @@ def test_full_system(
     dict_matcher,
     upload_file,
     wait_for_health,
-    load_messages_from_jsonl,
+    read_jsonl_fixture,
 ):
     video_path = root_dir / "movies" / "pizza-conversation.mp4"
 
@@ -129,13 +125,13 @@ def test_full_system(
     upload_response = upload_file({"video": (video_path, "video/mp4")})
 
     scene_chunks = consume_messages("video-chunks")
-    expected_scene_chunks = load_messages_from_jsonl("video_chunks.jsonl")
+    expected_scene_chunks = read_jsonl_fixture("video_chunks.jsonl")
 
     for expected, actual in zip(expected_scene_chunks, scene_chunks):
         dict_matcher.match(expected, actual)
 
     scene_messages = consume_messages("scenes")
-    expected_scene_messages = load_messages_from_jsonl("scene_messages.jsonl")
+    expected_scene_messages = read_jsonl_fixture("scene_messages.jsonl")
 
     for expected, actual in zip(expected_scene_messages, scene_messages):
         dict_matcher.match(expected, actual)
