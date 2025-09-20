@@ -1,4 +1,3 @@
-import json
 import re
 from unittest.mock import ANY
 
@@ -33,21 +32,10 @@ def replace_placeholders(json_data: dict, *, replacements: dict[str, str], repla
 
 
 @pytest.fixture
-def jsonl_fixture(path_for_fixture):
-    def _jsonl_fixture(filename):
-        with open(path_for_fixture(filename)) as f:
-            return [json.loads(line) for line in f]
-
-    return _jsonl_fixture
-
-
-@pytest.fixture
-def get_json_fixture(path_for_fixture):
-    def _get_json_fixture(filename, *, replacements: dict[str, str] = None, replace_any: bool = True):
-        with open(path_for_fixture(filename)) as f:
-            return replace_placeholders(json.load(f), replacements=replacements or {}, replace_any=replace_any)
-
-    return _get_json_fixture
+def pattern_handlers():
+    return {
+        "uuid4": r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+    }
 
 
 @pytest.fixture

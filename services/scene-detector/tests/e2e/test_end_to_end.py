@@ -58,7 +58,8 @@ def test_end_to_end(
     scenes_topic,
     chunked_video_bucket,
     path_for_fixture,
-    jsonl_fixture,
+    read_jsonl_fixture,
+    dict_match,
 ):
     s3_client = s3.get_client()
     scene_detector_container.with_env("PYTHONUNBUFFERED", "1")
@@ -93,7 +94,7 @@ def test_end_to_end(
         }
     )
 
-    video_chunks = jsonl_fixture("video_chunks.jsonl")
+    video_chunks = read_jsonl_fixture("video_chunks.jsonl")
     for chunk_message in video_chunks:
         producer.produce(raw_chunks_topic, json.dumps(chunk_message))
     producer.flush()
@@ -125,8 +126,11 @@ def test_end_to_end(
             continue
         output_messages.append(json.loads(message.value().decode("utf-8")))
 
-    with open("output_messages.jsonl", "w") as f:
-        for message in output_messages:
-            f.write(json.dumps(message) + "\n")
+    expected_messages = read_jsonl_fixture("outputs/output_messages.jsonl")
 
-    assert len(output_messages) > 18
+    different_scenes = {message["scene_id"] for message in output_messages}
+    assert len(different_scenes) == 8
+    assert len(output_messages) == 19
+
+    for actual, expected in zip(output_messages, expected_messages, strict=False):
+        assert dict_match(expected, actual)

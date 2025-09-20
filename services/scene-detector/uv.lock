@@ -438,6 +438,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dict-patterns"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/cd/fb2d6bc1b0948ead44bfe67c5943d116a7d115f903a283704107f9eff195/dict_patterns-0.3.0.tar.gz", hash = "sha256:c080039d3cbfcd35c9d98925e178ee0b915fe613a03f4565fd5562225d42ab90", size = 10221, upload-time = "2025-09-06T20:32:37.783Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/cf/3acaa07b16eb8ade57c1d75e7d30a084d5f869c166d4f8347d0849a3d8c4/dict_patterns-0.3.0-py3-none-any.whl", hash = "sha256:bcea63cb20d0ee27530d22c789a0791cab02c9a516c6149aad8eb56bec864399", size = 11971, upload-time = "2025-09-06T20:32:36.362Z" },
+]
+
+[[package]]
 name = "docker"
 version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1670,6 +1679,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "dict-patterns" },
     { name = "ipykernel" },
     { name = "matplotlib" },
     { name = "mypy" },
@@ -1698,6 +1708,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "dict-patterns", specifier = ">=0.3.0" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "mypy", specifier = ">=1.17.1" },
