@@ -5,6 +5,7 @@ from scenedetect import SceneManager, open_video
 from scenedetect.detectors import ContentDetector
 
 from scene_detector.entities import Scene
+from scene_detector.fingerprint import compute_fingerprint
 
 
 @dataclass
@@ -93,6 +94,7 @@ def detect_scenes(
                 video_end_time=end_sec + chunk_relative_start_time,
                 video_start_time=start_sec + chunk_relative_start_time,
                 keyframe=frame,
+                fingerprint=compute_fingerprint(frame),
             )
             results.append(scene)
 
