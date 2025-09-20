@@ -10,6 +10,6 @@ from scene_detector.scenes import detect_scenes
         ("chunk_000001_000009", 2),
     ],
 )
-def test_detect_scenes(fixture_path, video, expected_scenes):
-    scenes = detect_scenes(str(fixture_path(f"videos/{video}.mp4")), chunk_relative_start_time=0)
+def test_detect_scenes(path_for_fixture, video, expected_scenes):
+    scenes = detect_scenes(str(path_for_fixture(f"videos/{video}.mp4")), chunk_relative_start_time=0)
     assert len(scenes) == expected_scenes

@@ -1416,6 +1416,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-fixtures-fixtures"
+version = "0.3.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/5b/95e57fb26be1c507d4b5654c47d86053f0cfbc055cdf34e0691b58b75dea/pytest_fixtures_fixtures-0.3.4.tar.gz", hash = "sha256:fdfc71d4aad655a3b22eb664089ee09456661384ea03708c245cf5fab7aabc77", size = 10409, upload-time = "2025-09-14T19:12:32.013Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/76/481adc65323f48519323425da89851d78eff482406605fd0dabfe5372f97/pytest_fixtures_fixtures-0.3.4-py3-none-any.whl", hash = "sha256:052641bdc4fcd73d81343f74faf3a783dccacded4e408a765bd35d5e051c454b", size = 12873, upload-time = "2025-09-14T19:12:30.503Z" },
+]
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1662,6 +1674,7 @@ dev = [
     { name = "matplotlib" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-fixtures-fixtures" },
     { name = "requests" },
     { name = "ruff" },
     { name = "testcontainers", extra = ["minio"] },
@@ -1689,6 +1702,7 @@ dev = [
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "mypy", specifier = ">=1.17.1" },
     { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-fixtures-fixtures", specifier = ">=0.3.4" },
     { name = "requests", specifier = ">=2.32.4" },
     { name = "ruff", specifier = ">=0.12.9" },
     { name = "testcontainers", extras = ["minio"], specifier = ">=4.12.0" },

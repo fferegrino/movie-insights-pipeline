@@ -1,6 +1,5 @@
 import json
 import re
-from pathlib import Path
 from unittest.mock import ANY
 
 import numpy as np
@@ -11,14 +10,8 @@ from testcontainers.kafka import KafkaContainer
 from testcontainers.minio import MinioContainer
 from testcontainers.redis import RedisContainer
 
-
-@pytest.fixture
-def fixture_path(pytestconfig):
-    def _fixture_path(filename):
-        return Path(pytestconfig.rootdir) / "tests" / "fixtures" / filename
-
-    return _fixture_path
-
+from scene_detector.id_assigner import IdAssigner
+from tests.in_memory_scene_index import InMemorySceneIndex
 
 placeholder_regex = re.compile(r"\[(.*?)\]")
 
@@ -40,18 +33,18 @@ def replace_placeholders(json_data: dict, *, replacements: dict[str, str], repla
 
 
 @pytest.fixture
-def jsonl_fixture(fixture_path):
+def jsonl_fixture(path_for_fixture):
     def _jsonl_fixture(filename):
-        with open(fixture_path(filename)) as f:
+        with open(path_for_fixture(filename)) as f:
             return [json.loads(line) for line in f]
 
     return _jsonl_fixture
 
 
 @pytest.fixture
-def get_json_fixture(fixture_path):
+def get_json_fixture(path_for_fixture):
     def _get_json_fixture(filename, *, replacements: dict[str, str] = None, replace_any: bool = True):
-        with open(fixture_path(filename)) as f:
+        with open(path_for_fixture(filename)) as f:
             return replace_placeholders(json.load(f), replacements=replacements or {}, replace_any=replace_any)
 
     return _get_json_fixture
@@ -98,8 +91,13 @@ def redis(test_network):
 
 
 @pytest.fixture
-def image_as_array(fixture_path):
+def image_as_array(path_for_fixture):
     def _image_as_array(filename):
-        return np.array(Image.open(fixture_path(f"images/{filename}")))
+        return np.array(Image.open(path_for_fixture(f"images/{filename}")))
 
     return _image_as_array
+
+
+@pytest.fixture
+def in_memory_id_assigner():
+    return IdAssigner(InMemorySceneIndex())

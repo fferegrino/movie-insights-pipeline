@@ -57,7 +57,7 @@ def test_end_to_end(
     raw_chunks_topic,
     scenes_topic,
     chunked_video_bucket,
-    fixture_path,
+    path_for_fixture,
     jsonl_fixture,
 ):
     s3_client = s3.get_client()
@@ -74,7 +74,7 @@ def test_end_to_end(
     scene_detector_container.with_env("REDIS__HOST", "redis")
     scene_detector_container.with_env("REDIS__PORT", "6379")
 
-    all_videos = fixture_path("videos").glob("*.mp4")
+    all_videos = path_for_fixture("videos").glob("*.mp4")
     for video_path in all_videos:
         s3_client.fput_object(
             bucket_name=chunked_video_bucket,
@@ -124,5 +124,9 @@ def test_end_to_end(
         if message.error():
             continue
         output_messages.append(json.loads(message.value().decode("utf-8")))
+
+    with open("output_messages.jsonl", "w") as f:
+        for message in output_messages:
+            f.write(json.dumps(message) + "\n")
 
     assert len(output_messages) > 18
