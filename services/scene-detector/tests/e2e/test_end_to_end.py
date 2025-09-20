@@ -1,5 +1,6 @@
 import json
 import time
+import uuid
 
 import pytest
 from confluent_kafka import Consumer, Producer
@@ -36,7 +37,7 @@ def scenes_topic(kafka):
 
 @pytest.fixture
 def chunked_video_bucket(s3):
-    bucket_name = "chunked-videos"
+    bucket_name = "chunked-data"
     client = s3.get_client()
     client.make_bucket(bucket_name)
     yield bucket_name
@@ -49,7 +50,16 @@ def chunked_video_bucket(s3):
 
 
 def test_end_to_end(
-    s3, kafka, redis, scene_detector_container, raw_chunks_topic, scenes_topic, chunked_video_bucket, fixture_path
+    s3,
+    kafka,
+    redis,
+    scene_detector_container,
+    raw_chunks_topic,
+    scenes_topic,
+    chunked_video_bucket,
+    path_for_fixture,
+    read_jsonl_fixture,
+    dict_match,
 ):
     s3_client = s3.get_client()
     scene_detector_container.with_env("PYTHONUNBUFFERED", "1")
@@ -65,11 +75,13 @@ def test_end_to_end(
     scene_detector_container.with_env("REDIS__HOST", "redis")
     scene_detector_container.with_env("REDIS__PORT", "6379")
 
-    s3_client.fput_object(
-        bucket_name=chunked_video_bucket,
-        object_name="78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-        file_path=fixture_path("videos/big_buck_bunny_01@480p30.mp4"),
-    )
+    all_videos = path_for_fixture("videos").glob("*.mp4")
+    for video_path in all_videos:
+        s3_client.fput_object(
+            bucket_name=chunked_video_bucket,
+            object_name=f"78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/{video_path.stem}.mp4",
+            file_path=video_path,
+        )
 
     # Wait for the container to start
     time.sleep(10)
@@ -82,63 +94,43 @@ def test_end_to_end(
         }
     )
 
-    chunk_message = {
-        "chunk_count": 2,
-        "chunk_idx": 2,
-        "end_ts": 10,
-        "fps": 25.0,
-        "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-        "overlap_left": 1,
-        "overlap_right": 0.0,
-        "settings": {"audio_codec": "aac", "codec": "libx264"},
-        "start_ts": 5,
-        "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-        "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87",
-    }
-
-    producer.produce(raw_chunks_topic, json.dumps(chunk_message))
+    video_chunks = read_jsonl_fixture("video_chunks.jsonl")
+    for chunk_message in video_chunks:
+        producer.produce(raw_chunks_topic, json.dumps(chunk_message))
     producer.flush()
 
-    consumer = Consumer(
-        {
-            "bootstrap.servers": kafka.get_bootstrap_server(),
-            "group.id": "test-group-23132322",
-            "security.protocol": "PLAINTEXT",
-            "auto.offset.reset": "earliest",
-        }
-    )
-    consumer.subscribe([raw_chunks_topic])
     time.sleep(1)
-    message = consumer.poll(timeout=1.0)
-    if message is None:
-        raise Exception("No message received")
-    if message.error():
-        raise Exception(message.error())
-
-    message_value = json.loads(message.value().decode("utf-8"))
-    assert message_value == chunk_message
 
     scene_detector_container.start()
 
     time.sleep(10)
 
-    consumer.unsubscribe()
-    consumer.close()
-
     consumer = Consumer(
         {
             "bootstrap.servers": kafka.get_bootstrap_server(),
-            "group.id": "test-group-23132322",
+            "group.id": f"test-group-{uuid.uuid4()}",
             "security.protocol": "PLAINTEXT",
             "auto.offset.reset": "earliest",
         }
     )
     consumer.subscribe([scenes_topic])
     time.sleep(1)
-    message = consumer.poll(timeout=1.0)
-    if message is None:
-        raise Exception("No message received")
-    if message.error():
-        raise Exception(message.error())
 
-    message_value = json.loads(message.value().decode("utf-8"))
+    start_time = time.time()
+    output_messages = []
+    while time.time() - start_time < 10:
+        message = consumer.poll(timeout=1.0)
+        if message is None:
+            continue
+        if message.error():
+            continue
+        output_messages.append(json.loads(message.value().decode("utf-8")))
+
+    expected_messages = read_jsonl_fixture("outputs/output_messages.jsonl")
+
+    different_scenes = {message["scene_id"] for message in output_messages}
+    assert len(different_scenes) == 8
+    assert len(output_messages) == 19
+
+    for actual, expected in zip(output_messages, expected_messages, strict=False):
+        assert dict_match(expected, actual)

@@ -1,8 +1,25 @@
+from dataclasses import dataclass
+
 import cv2
 from scenedetect import SceneManager, open_video
 from scenedetect.detectors import ContentDetector
 
 from scene_detector.entities import Scene
+from scene_detector.fingerprint import compute_fingerprint
+
+
+@dataclass
+class DetectedSceneInfo:
+    """
+    Represents a detected scene in a video.
+
+    Contains temporal boundaries and frame numbers.
+    """
+
+    start_sec: float
+    end_sec: float
+    start_frame: int
+    end_frame: int
 
 
 def detect_scenes(
@@ -34,14 +51,33 @@ def detect_scenes(
 
     # Get list of scene boundaries (list of (start_time, end_time))
     scene_list = scene_manager.get_scene_list()
+    scene_list = [
+        DetectedSceneInfo(
+            start_sec=start.get_seconds(),
+            end_sec=end.get_seconds(),
+            start_frame=start.get_frames(),
+            end_frame=end.get_frames(),
+        )
+        for start, end in scene_list
+    ]
 
     results = []
     cap = cv2.VideoCapture(video_path)
 
-    for start, end in scene_list:
+    if len(scene_list) == 0:
+        scene_list = [
+            DetectedSceneInfo(
+                start_sec=0,
+                end_sec=cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS),
+                start_frame=0,
+                end_frame=cap.get(cv2.CAP_PROP_FRAME_COUNT) - 1,
+            )
+        ]
+
+    for scene_info in scene_list:
         # Convert to seconds
-        start_sec = start.get_seconds()
-        end_sec = end.get_seconds()
+        start_sec = scene_info.start_sec
+        end_sec = scene_info.end_sec
 
         # Seek to midpoint frame of the scene to extract keyframe
         mid_sec = (start_sec + end_sec) / 2
@@ -51,13 +87,14 @@ def detect_scenes(
         if success:
             scene = Scene(
                 video_id=video_path.split("/")[0],
-                frame_start=start.get_frames(),
-                frame_end=end.get_frames(),
+                frame_start=scene_info.start_frame,
+                frame_end=scene_info.end_frame,
                 chunk_start_time=start_sec,
                 chunk_end_time=end_sec,
                 video_end_time=end_sec + chunk_relative_start_time,
                 video_start_time=start_sec + chunk_relative_start_time,
                 keyframe=frame,
+                fingerprint=compute_fingerprint(frame),
             )
             results.append(scene)
 

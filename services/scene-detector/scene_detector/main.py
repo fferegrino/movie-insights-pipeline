@@ -4,7 +4,6 @@ from pathlib import Path
 
 from confluent_kafka import Consumer, Producer
 
-from scene_detector.fingerprint import compute_fingerprint
 from scene_detector.id_assigner import IdAssigner
 from scene_detector.s3 import S3Client
 from scene_detector.scenes import detect_scenes
@@ -85,7 +84,6 @@ class SceneDetector:
 
         chunks = []
         for scene in scenes:
-            scene.fingerprint = compute_fingerprint(scene.keyframe)
             scene.video_id = video_id
             self.id_assigner.assign(scene)
 

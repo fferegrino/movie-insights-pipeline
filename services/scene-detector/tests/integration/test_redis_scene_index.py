@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from testcontainers.redis import RedisContainer
 
@@ -43,7 +45,7 @@ def test_redis_scene_index_add_one(redis_client, image_fingerprint):
 
     current_fingerprints = redis_client.hgetall("video:video_1:scenes")
     current_scene_info = redis_client.hgetall("video:video_1:scene_info:scene_1")
-    assert current_fingerprints == {"scene_1": image_fingerprint("frame_0.png")}
+    assert current_fingerprints == {"scene_1": json.dumps([image_fingerprint("frame_0.png")])}
     assert current_scene_info == {"video_start_time": "0", "video_end_time": "10"}
 
 
@@ -53,7 +55,7 @@ def test_redis_scene_index_find_match(redis_client, image_fingerprint):
     redis_scene_index.add_scene(create_scene("video_1", "scene_1", image_fingerprint("frame_0.png")))
 
     current_fingerprints = redis_client.hgetall("video:video_1:scenes")
-    assert current_fingerprints == {"scene_1": image_fingerprint("frame_0.png")}
+    assert current_fingerprints == {"scene_1": json.dumps([image_fingerprint("frame_0.png")])}
 
     actual_scene_match = redis_scene_index.find_match(create_scene("video_1", None, image_fingerprint("frame_0.png")))
 

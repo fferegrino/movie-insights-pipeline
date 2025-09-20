@@ -57,7 +57,7 @@ class SceneIndex(ABC):
         """
 
     @abstractmethod
-    def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
+    def get_scene_fingerprints(self, video_id: str, scene_id: str) -> list[str]:
         """
         Retrieve a scene fingerprint from the storage backend.
 
@@ -66,7 +66,7 @@ class SceneIndex(ABC):
             scene_id: Unique identifier for the scene within the video
 
         Returns:
-            The fingerprint data for the scene, or None if not found
+            list[str]: The fingerprint data for the scene, or None if not found
 
         """
 
