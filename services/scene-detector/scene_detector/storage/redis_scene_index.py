@@ -1,3 +1,5 @@
+import json
+
 import redis
 
 from scene_detector.entities import Scene
@@ -116,10 +118,12 @@ class RedisSceneIndex(SceneIndex):
             >>> scene_index.add_scene(Scene(video_id="video_123", scene_id="scene_1", fingerprint="abc123..."))
 
         """
-        self.redis_client.hset(self._scenes_key(scene.video_id), scene.scene_id, scene.fingerprint)
+        fingerprints = json.dumps([scene.fingerprint])
+        self.redis_client.hset(self._scenes_key(scene.video_id), scene.scene_id, fingerprints)
+
         self._insert_scene_info(scene)
 
-    def get_scene_fingerprint(self, video_id: str, scene_id: str) -> str:
+    def get_scene_fingerprints(self, video_id: str, scene_id: str) -> list[str]:
         """
         Retrieve a scene fingerprint from the Redis index.
 
@@ -128,15 +132,18 @@ class RedisSceneIndex(SceneIndex):
             scene_id (str): Unique identifier for the scene within the video
 
         Returns:
-            str: The fingerprint data for the scene, or None if not found
+            list[str]: The fingerprint data for the scene, or None if not found
 
         Example:
-            >>> fingerprint = scene_index.get_scene_fingerprint("video_123", "scene_1")
-            >>> if fingerprint:
-            ...     print(f"Found fingerprint: {fingerprint}")
+            >>> fingerprints = scene_index.get_scene_fingerprints("video_123", "scene_1")
+            >>> if fingerprints:
+            ...     print(f"Found fingerprints: {fingerprints}")
 
         """
-        return self.redis_client.hget(self._scenes_key(video_id), scene_id)
+        fingerprints = self.redis_client.hget(self._scenes_key(video_id), scene_id)
+        if fingerprints:
+            return json.loads(fingerprints)
+        return []
 
     def _overlap(self, scene_one: Scene, start_time: float, end_time: float) -> bool:
         """Check if a scene overlaps with another scene."""
@@ -170,18 +177,21 @@ class RedisSceneIndex(SceneIndex):
 
         """
         fingerprints = self.redis_client.hgetall(self._scenes_key(scene.video_id))
-        for scene_id, stored_fp in fingerprints.items():
-            dist = fingerprint_distance(scene.fingerprint, stored_fp)
-            if dist <= self.threshold:
-                scene_info = self.redis_client.hgetall(self._scene_info_key(scene.video_id, scene_id))
-                if self._overlap(scene, float(scene_info["video_start_time"]), float(scene_info["video_end_time"])):
-                    return SceneMatch(
-                        scene_id=scene_id,
-                        video_id=scene.video_id,
-                        distance=dist,
-                        video_start_time=float(scene_info["video_start_time"]),
-                        video_end_time=float(scene_info["video_end_time"]),
-                    )
+
+        for scene_id, encoded_stored_fps in fingerprints.items():
+            stored_fps = json.loads(encoded_stored_fps)
+            for stored_fp in stored_fps:
+                dist = fingerprint_distance(scene.fingerprint, stored_fp)
+                if dist <= self.threshold:
+                    scene_info = self.redis_client.hgetall(self._scene_info_key(scene.video_id, scene_id))
+                    if self._overlap(scene, float(scene_info["video_start_time"]), float(scene_info["video_end_time"])):
+                        return SceneMatch(
+                            scene_id=scene_id,
+                            video_id=scene.video_id,
+                            distance=dist,
+                            video_start_time=float(scene_info["video_start_time"]),
+                            video_end_time=float(scene_info["video_end_time"]),
+                        )
         return None
 
     def _insert_scene_info(self, scene: Scene):
@@ -214,3 +224,6 @@ class RedisSceneIndex(SceneIndex):
                 "video_end_time": scene.video_end_time,
             },
         )
+        current_fingerprints = self.get_scene_fingerprints(scene.video_id, scene.scene_id)
+        current_fingerprints.append(scene.fingerprint)
+        self.redis_client.hset(self._scenes_key(scene.video_id), scene.scene_id, json.dumps(current_fingerprints))
