@@ -158,6 +158,27 @@ services:
       REDIS__PORT: 6379
       PYTHONUNBUFFERED: 1
 
+  scene-manager:
+    build:
+      context: ./services/scene-manager
+      dockerfile: Dockerfile
+    container_name: scene-manager
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      KAFKA__BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA__SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA__SCENES_TOPIC: scenes
+      KAFKA__MERGED_SCENES_TOPIC: merged-scenes
+      KAFKA__GROUP_ID: scene-manager
+      KAFKA__AUTO_OFFSET_RESET: earliest
+      REDIS__HOST: redis
+      REDIS__PORT: 6379
+      PYTHONUNBUFFERED: 1
+
   system-view:
     build:
       context: ./services/system-view
