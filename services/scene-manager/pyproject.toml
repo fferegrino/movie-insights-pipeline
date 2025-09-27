@@ -12,8 +12,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "dict-patterns>=0.3.0",
     "mypy>=1.17.1",
     "pytest>=7.0.0",
+    "pytest-fixtures-fixtures>=0.3.4",
     "ruff>=0.12.8",
     "testcontainers[minio]>=4.12.0",
 ]

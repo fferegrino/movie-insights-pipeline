@@ -36,5 +36,5 @@ scene_merger = SceneMerger(
 
 
 consumer.subscribe([settings.kafka.scenes_topic])
-processor = SceneProcessor(scene_merger, consumer, producer)
+processor = SceneProcessor(scene_merger, consumer, producer, merged_scenes_topic=settings.kafka.merged_scenes_topic)
 processor.run()

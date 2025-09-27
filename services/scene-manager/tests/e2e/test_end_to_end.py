@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 from confluent_kafka import Consumer, Producer
@@ -50,13 +51,33 @@ def producer(kafka):
 
 
 @pytest.fixture
-def scene_messages(pytestconfig):
-    with open(pytestconfig.rootdir / "tests/fixtures/scene_messages.jsonl") as f:
-        return [json.loads(line) for line in f.readlines()]
+def scene_input_messages(read_jsonl_fixture):
+    return read_jsonl_fixture("inputs/scene_messages.jsonl")
+
+
+@pytest.fixture
+def pattern_handlers():
+    return {
+        "uuid4": r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    }
+
+
+@pytest.fixture
+def scene_output_messages(read_jsonl_fixture):
+    return list(read_jsonl_fixture("outputs/merged_scenes.jsonl"))
 
 
 def test_end_to_end(
-    kafka, redis, scene_manager_container, scenes_topic, merged_scenes_topic, scene_messages, producer, consumer
+    kafka,
+    redis,
+    scene_manager_container,
+    scenes_topic,
+    merged_scenes_topic,
+    scene_input_messages,
+    scene_output_messages,
+    producer,
+    consumer,
+    dict_match,
 ):
     video_id = "2946d2a0-0695-41b5-8da6-d68e04c4c289"
 
@@ -82,83 +103,34 @@ def test_end_to_end(
     scene_manager_container.with_env("REDIS__PORT", "6379")
 
     # consumer.subscribe([scenes_topic])
-    for message in scene_messages:
+    for message in scene_input_messages:
         producer.produce(scenes_topic, json.dumps(message).encode("utf-8"))
     producer.flush()
 
     scene_manager_container.start()
 
-    # time.sleep(10)
-    breakpoint()
+    consumer = Consumer(
+        {
+            "bootstrap.servers": kafka.get_bootstrap_server(),
+            "group.id": "test-group-23132322",
+            "security.protocol": "PLAINTEXT",
+            "auto.offset.reset": "earliest",
+        }
+    )
+    consumer.subscribe([merged_scenes_topic])
 
-    # # Wait for the container to start
-    # time.sleep(10)
+    merged_scene_topic_messages = []
+    t0 = time.time()
 
-    # # Send a message to the Kafka topic
-    # producer = Producer(
-    #     {
-    #         "bootstrap.servers": kafka.get_bootstrap_server(),
-    #         "security.protocol": "PLAINTEXT",
-    #     }
-    # )
+    while time.time() - t0 < 30:
+        message = consumer.poll(timeout=1.0)
+        if message is None:
+            continue
+        if message.error():
+            continue
+        merged_scene_topic_messages.append(json.loads(message.value().decode("utf-8")))
 
-    # chunk_message = {
-    #     "chunk_count": 2,
-    #     "chunk_idx": 2,
-    #     "end_ts": 10,
-    #     "fps": 25.0,
-    #     "id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-    #     "overlap_left": 1,
-    #     "overlap_right": 0.0,
-    #     "settings": {"audio_codec": "aac", "codec": "libx264"},
-    #     "start_ts": 5,
-    #     "uri": "s3://chunked-videos/78eb6d79-81f7-4d1f-b2d0-d8574cd7de87/chunk_000002_000002.mp4",
-    #     "video_id": "78eb6d79-81f7-4d1f-b2d0-d8574cd7de87",
-    # }
+    assert len(scene_output_messages) == len(merged_scene_topic_messages)
 
-    # producer.produce(raw_chunks_topic, json.dumps(chunk_message))
-    # producer.flush()
-
-    # consumer = Consumer(
-    #     {
-    #         "bootstrap.servers": kafka.get_bootstrap_server(),
-    #         "group.id": "test-group-23132322",
-    #         "security.protocol": "PLAINTEXT",
-    #         "auto.offset.reset": "earliest",
-    #     }
-    # )
-    # consumer.subscribe([raw_chunks_topic])
-    # time.sleep(1)
-    # message = consumer.poll(timeout=1.0)
-    # if message is None:
-    #     raise Exception("No message received")
-    # if message.error():
-    #     raise Exception(message.error())
-
-    # message_value = json.loads(message.value().decode("utf-8"))
-    # assert message_value == chunk_message
-
-    # scene_detector_container.start()
-
-    # time.sleep(10)
-
-    # consumer.unsubscribe()
-    # consumer.close()
-
-    # consumer = Consumer(
-    #     {
-    #         "bootstrap.servers": kafka.get_bootstrap_server(),
-    #         "group.id": "test-group-23132322",
-    #         "security.protocol": "PLAINTEXT",
-    #         "auto.offset.reset": "earliest",
-    #     }
-    # )
-    # consumer.subscribe([scenes_topic])
-    # time.sleep(1)
-    # message = consumer.poll(timeout=1.0)
-    # if message is None:
-    #     raise Exception("No message received")
-    # if message.error():
-    #     raise Exception(message.error())
-
-    # message_value = json.loads(message.value().decode("utf-8"))
+    for template, message in zip(scene_output_messages, merged_scene_topic_messages, strict=False):
+        assert dict_match(template, message)

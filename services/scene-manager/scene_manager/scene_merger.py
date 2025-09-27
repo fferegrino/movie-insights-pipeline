@@ -3,6 +3,22 @@ import redis
 from .entities import Interval, VideoMetadata
 
 
+def close(a: float, b: float, margin: float = 0.1) -> bool:
+    """
+    Check if two numbers are close enough.
+
+    Args:
+        a (float): First number
+        b (float): Second number
+        margin (float): Margin of error, defaults to 0.1
+
+    Returns:
+        bool: True if numbers are close enough, False otherwise
+
+    """
+    return abs(a - b) <= margin
+
+
 class SceneMerger:
     """
     A Redis-based scene merger that manages video scene intervals and merges overlapping scenes.
@@ -252,13 +268,12 @@ class SceneMerger:
 
         scene_intervals_key = self._scene_interval_key("intervals", scene.video_id, scene.scene_id)
         video_intervals_key = self._video_interval_key("intervals", scene.video_id)
+
         scene_intervals = self._insert_intervals_for_identifier(scene_intervals_key, (scene.start, scene.end))
         video_intervals = self._insert_intervals_for_identifier(video_intervals_key, *scene_intervals)
-        print("Incoming interval:", scene.start, scene.end)
-        print(video_intervals_key, video_intervals)
 
         if len(video_intervals) == 1 and (
-            video_intervals[0][0] == 0 and video_intervals[0][1] >= video_metadata.duration
+            video_intervals[0][0] == 0 and close(video_intervals[0][1], video_metadata.duration)
         ):
             all_scene = self._scene_interval_key("intervals", scene.video_id, "*")
             all_scene_keys = self.redis.keys(all_scene)
