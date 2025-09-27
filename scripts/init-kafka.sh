@@ -13,6 +13,7 @@ topics=(
   "raw-videos"
   "video-chunks"
   "scenes"
+  "merged-scenes"
 )
 
 for topic in "${topics[@]}"; do

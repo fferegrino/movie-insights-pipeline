@@ -122,7 +122,7 @@ def test_full_system(
 
     wait_for_health()
 
-    upload_response = upload_file({"video": (video_path, "video/mp4")})
+    upload_file({"video": (video_path, "video/mp4")})
 
     scene_chunks = consume_messages("video-chunks")
     expected_scene_chunks = read_jsonl_fixture("video_chunks.jsonl")
@@ -134,6 +134,11 @@ def test_full_system(
     expected_scene_messages = read_jsonl_fixture("scene_messages.jsonl")
 
     for expected, actual in zip(expected_scene_messages, scene_messages):
+        dict_matcher.match(expected, actual)
+
+    merged_scenes = consume_messages("merged-scenes")
+    expected_merged_scenes = read_jsonl_fixture("merged_scenes.jsonl")
+    for expected, actual in zip(expected_merged_scenes, merged_scenes):
         dict_matcher.match(expected, actual)
 
 
